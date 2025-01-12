@@ -20,7 +20,8 @@ pygame.display.set_caption("Batalla Naval - UN") #Nombre de la ventana
 fondo=pygame.image.load("Fondo 1 - 8 bits.jpg") #Ruta de acceso de la imagen
 fondo2=pygame.image.load("Fondo 2 - 8 Bits.jpg")
 
-
+icono=pygame.image.load("Icono.jpg")
+pygame.display.set_icon(icono)
 
 
 #Fuentes----------------------------------------------------------
