@@ -135,6 +135,7 @@ Barcos_derribados=0
 Posicion_barcos=[[]]
 ##Determinamos las letras de las coordenadas del tablero
 Letras_coordenadas="ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
+##------------------------------------------------------------------
 ##Con las variables ya creadas empezamos con la creacion de funciones 
 ##La primera funcion va a ser para validar el tablero y colocar la posicion de los barcos 
 ##Definimos como parametros de la funcion las medidas del tablero,donde comienza
@@ -184,3 +185,65 @@ def Tablero_y_posicion_barcos(Inicio_fila,Final_fila,Inicio_columna,Final_column
 ## en vez del * que representaba el vacio              
                 return Posiciones_validadas
 ##Devolvemos el valor de las Posiciones validadas
+##------------------------------------------------------------------------------
+##Ahora vamos a ubicar un barco en la cuadricula 
+##Creamos la funcion 
+def Ubicar_barco_cuadricula(Fila,Columna,Direccion,Longitud):
+##Le introducimos a la funcion como parametros la fila,columna
+##direccion(como se ubicara el barco)y la cantidad de espacios
+##que ocupara o su longitud en la cuadricula
+    global Tamaño_tablero
+##Llamamos nuevamente con global la variable creada fuera de la funcion para
+##que se modifique dentro de la funcion 
+    Inicio_fila,Final_fila,Inicio_columna,Final_columna = Fila,Fila+1,Columna,
+    Columna+1 
+##Definimos las variables que utilizaremos,en este caso son,el inicio y fin 
+##de filas y columnas que se ajustaran a las casillas del tablero 
+##para que se ajuste el rango de las posiciones le sumamos a cada fila y columna 1 
+##esto las ajustara a la longitud del barco dependiendo de la direccion 
+##Fila es donde comienza el barco al colocarlo(Inicio_fila)
+##Fila + 1 es donde termina el barco de ser colocado(Final_fila)
+##Columna es donde comienza el barco al colocarlo(Inicio_columna)
+##Columna + 1 es donde termina el barco de ser colocado(Final_columna)
+    if Direccion.lower() == "izquierda":
+##Usaremos un if para conocer cual es la direccion que se nos esta indicando
+##tambien haremos uso del metodo .lower para que no hayan confusiones 
+##al digitar la direccion
+        if Columna - Longitud < 0:
+##Ahora vamos a validar que la posicion seleccionada sea correcta 
+##si la columna menos la longitud es menor que 0 quiere decir
+##que nos estamos saliendo de los limites del tablero y por ello 
+##devuelve false pues la posicion no es valida 
+            return False
+        Inicio_columna = Columna - Longitud + 1
+       
+##Si la posicion esta bien entonces procedera restar la 
+##columna inicial con la longitud mas 1 para asi ajustar
+##el calculo del espacio inicial(columna) con la cantidad
+##de espacios ocupados(longitud),desplazandose hacia 
+##la izquierda desde el punto inicial(tomandolo)para 
+##no sobrepasar los limites del tablero
+    elif Direccion.lower() == "derecha":
+        if Columna + Longitud >= Tamaño_tablero:
+            return False
+##Hacemos lo mismo con la direccion a la derecha 
+##en este caso es para verficar que no nos salgamos
+##de los limites del tablero y si lo hacemos
+##retorna Falso
+        Final_columna = Columna + Longitud 
+##Para ajustar la posicion final de la columna 
+##tras comprobar que no salga de los limites
+##se suma la columna inicial con la longitud 
+    elif Direccion.lower() == "arriba":
+        if Fila - Longitud < 0:
+            return False
+        Inicio_fila = Fila - Longitud + 1
+    elif Direccion.lower() == "abajo":
+        if Fila + Longitud >= Tamaño_tablero:
+            return False
+        Final_fila = Fila + Longitud 
+##Realizamos el mismo codigo para cada direccion
+##tanto en inicio como en fin de fila y columna 
+    return Tablero_y_posicion_barcos(Inicio_fila,Final_fila,Inicio_columna,Final_columna)
+##Para devolver un valor llamamos a la funcion creada que 
+##nos permite saber si en el espacio clickeado se encuentra o no un barco
