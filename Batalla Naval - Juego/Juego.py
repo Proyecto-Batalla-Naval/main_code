@@ -114,3 +114,73 @@ while True:
 
 
 
+
+##--------------------------------------------------------------------------------
+##CREACION DE CUADRICULA DEL TABLERO Y UBICACION DE POSICION DE LOS BARCOS
+##Creacion del tablero
+##Definir una variable global para el tablero como una lista
+Tablero=[[]]
+##Definir el tamaño del tablero
+Tamaño_tablero=10
+##Definimos la cantidad de barcos
+Cantidad_barcos=5
+##Definimos la cantidad de cañones o ataques
+Cantidad_cañones=30
+##Definimos la variable para cuando se acaben las oportunidades de ataque o para cuando todos los barcos hayan 
+##o para cuando todos los barcos hayan sido derribados 
+Fin_del_juego=False
+##Definimos la variable para los barcos derribados
+Barcos_derribados=0
+##Definimos la variable para la posicion de los barcos como una lista
+Posicion_barcos=[[]]
+##Determinamos las letras de las coordenadas del tablero
+Letras_coordenadas="ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
+##Con las variables ya creadas empezamos con la creacion de funciones 
+##La primera funcion va a ser para validar el tablero y colocar la posicion de los barcos 
+##Definimos como parametros de la funcion las medidas del tablero,donde comienza
+##la fila y donde termina y asi mismo con las columnas
+def Tablero_y_posicion_barcos(Inicio_fila,Final_fila,Inicio_columna,Final_columna):
+##Esto nos va a permitir conocer si donde clickeamos se encuentra un barco o no
+##Llamamos con global las variables creadas fuera de la funcion para
+##que se modifiquen dentro de la funcion 
+    global Tablero
+    global Posicion_barcos
+##Ahora vamos a comprobar si todas las posiciones han sido validadas 
+
+
+    Posiciones_validadas=True
+##Con un for dentro de los rangos que componen el tablero
+##tanto filas como columnas
+    for i in range(Inicio_fila,Final_fila):
+        for j in range(Inicio_columna,Final_columna):
+##Utilizaremos el simbolo * para
+##determinar que ese es un espacio vacio en donde no se 
+##encuentran barcos,por lo que si en el tablero,al revisar
+##en filas y columnas se encuentra un simbolo diferente 
+## al * del espacio vacios devuelve falso y se rompe el bucle
+            if Tablero[i] [j] != "*":
+                Posiciones_validadas=False
+                break
+##Si en el anterior bucle fue validado True(quiere decir que no encontramos nada)
+##podemos crear un barco 
+##Crearemos un if con la variable de posiciones validadas  
+##y en su cuerpo usaremos el metodo .append con la  variable  
+##posicion de los barcos para agregar las coordenadas de inicio y fin
+##tanto en filas como en columnas para asi ubicar los barcos 
+##para mantener un registro de donde pusimos el barco
+## y asi conocer si todo el barco ha sido hundido
+
+    if Posiciones_validadas:
+        Posicion_barcos.append([Inicio_fila,Final_fila,Inicio_columna,Final_columna])
+        for i in range(Inicio_fila,Final_fila):
+            for j in range(Inicio_columna,Final_columna):
+##Nuevamente utilizamos el for en filas y columnas                
+                Tablero[i] [j] = "+"
+##Definimos que la posicion de los barcos en el Tablero va 
+##a ser modificada con otro simbolo
+##en i(filas) y en j(columnas) es equivalente
+##por a el simbolo + que va a representar  
+## las partes que abarca el navio en la cuadricula 
+## en vez del * que representaba el vacio              
+                return Posiciones_validadas
+##Devolvemos el valor de las Posiciones validadas
