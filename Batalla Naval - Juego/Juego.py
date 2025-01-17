@@ -112,6 +112,8 @@ while True:
     if(modo=="jugar"):
         JuegoLoop()
 
+        
+
 
 
 
