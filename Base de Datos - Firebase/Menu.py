@@ -1,8 +1,8 @@
 import firebase_admin
 from firebase_admin import credentials, db
-
+credentials
 #Conectar a firebase
-cred = firebase_admin.credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = firebase_admin.credentials.Certificate(r"C:\Users\julia\OneDrive\Documentos\Unal 1 semestre\Programación\Batalla naval\Main code\main_code\Base de Datos - Firebase\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 default_app = firebase_admin.initialize_app(cred, {
     'databaseURL':"https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -19,12 +19,15 @@ refe= db.reference("Datos_del_usuario") #Genera un nodo de informacion diferente
 def ingresoDatos():
     userName=input("Ingrese su UserName: ")
     examen=int(input("Cuántas veces presento el examen de la Universidad Nacional:  "))
-
+    nombre=input("Ingrese su nombre: ")
+    edad=int(input("Ingrese su edad:"))
 
     #diccionario de datos
     data={
         "UserName":userName,
-        "Intentos_examen":examen
+        "Intentos_examen":examen,
+        "Edad":edad,
+        "Nombre":nombre
 
     }
     #cargar los datos
@@ -38,8 +41,11 @@ def mostrarDatos():
         for key, value in datosGuardados.items(): #el metodo get() retorna la informacion de los nodos como diccionarios, el primer valor es la ID, corresponde al subnodo. y el segundo "valor" son todos los datos dentro de ese subnodo, nombre, edad ...
             username=value.get("UserName","No hay UserName")
             intentosExamen=value.get("Intentos_examen","No hay Intento_examen")
+            Nombre=value.get("Nombre","No hay nombre")
+            Edad=value.get("Edad","No hay edad")
           
-            print(f" ID: {key}, UserName: {username}, Intentos: {intentosExamen}")
+            print(f" ID: {key}, UserName: {username}, Intentos: {intentosExamen},Nombre{Nombre},Edad{Edad}")
+            
     else:
         print("No hay datos guardados \n") 
 
@@ -57,11 +63,15 @@ def sobreescribirDatos():
         #si se encontro el subnodo, se solicitan los nuevos datos
         nuevoNombre=input("Ingrese su nuevo Username: ")
         nuevosIntentos=int(input("Ingrese los intentos que realizó: "))
+        nuevonombre=input("Ingrese su nuevo Nombre: ")
+        nuevaedad=int(input("Ingrese su nueva Edad: "))
 
         #sobreescibir datos
         nuevosDatos={
             "UserName":nuevoNombre,
-            "Intentos_examen":nuevosIntentos
+            "Intentos_examen":nuevosIntentos,
+            "Edad": nuevaedad,
+            "Nombre": nuevonombre
         }
 
         refe.child(subnodo_id).set(nuevosDatos) #refe es el nodo el .child(id del subnodo)se posa sobre ese subnodo; .set() sobreescribe los datos
@@ -115,3 +125,5 @@ def escuchar_eventos(event):
     print(f"Cambio detectado: {event.data}")
 
 ref.listen(escuchar_eventos)"""
+##Se realizaron las adiciones a la base de datos 
+##Intento de pull and push
