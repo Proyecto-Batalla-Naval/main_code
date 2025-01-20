@@ -2,7 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, db
 credentials
 #Conectar a firebase
-cred = firebase_admin.credentials.Certificate(r"C:\Users\julia\OneDrive\Documentos\Unal 1 semestre\Programación\Batalla naval\Main code\main_code\Base de Datos - Firebase\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = firebase_admin.credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 default_app = firebase_admin.initialize_app(cred, {
     'databaseURL':"https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -37,14 +37,14 @@ def ingresoDatos():
 def mostrarDatos():
     datosGuardados=refe.get() #metodo get(), trae los datos ya guardados en el nodo ref, las claves ID y los datos especificos
     if(datosGuardados):
-        print("\nDatos guardados en la base de datos: ")
+        print("\nDatos guardados en la base de datos. ")
         for key, value in datosGuardados.items(): #el metodo get() retorna la informacion de los nodos como diccionarios, el primer valor es la ID, corresponde al subnodo. y el segundo "valor" son todos los datos dentro de ese subnodo, nombre, edad ...
             username=value.get("UserName","No hay UserName")
             intentosExamen=value.get("Intentos_examen","No hay Intento_examen")
             Nombre=value.get("Nombre","No hay nombre")
             Edad=value.get("Edad","No hay edad")
           
-            print(f" ID: {key}, UserName: {username}, Intentos: {intentosExamen},Nombre{Nombre},Edad{Edad}")
+            print(f" ID: {key}, UserName: {username}, \tIntentos: {intentosExamen}, \tNombre: {Nombre}, \t2Edad: {Edad}")
             
     else:
         print("No hay datos guardados \n") 
