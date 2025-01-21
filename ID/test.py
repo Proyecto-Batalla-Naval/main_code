@@ -3,9 +3,9 @@ from firebase_admin import credentials, db
 import re
 
 # Inicializamos la conexión con Firebase
-cred = credentials.Certificate(r"C:\Users\danim\Downloads\intro-firebase-be732-firebase-adminsdk-fbsvc-d358dd2812.json")
+cred = credentials.Certificate(r"intro-firebase-be732-firebase-adminsdk-fbsvc-fc76c9d48a.json")
 firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://intro-firebase-be732-default-rtdb.firebaseio.com/'
+    'databaseURL': 'https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/'
 })
 
 # Función para crear un tablero vacío
