@@ -138,7 +138,6 @@ def menu():
             if(opcion=="1"):
                 ingresoCoordenada(jugador,coordenadas_juego)
                 break
-
             elif(opcion=="2"):
                 verSelecciones(jugador,coordenadas_juego)
                 break
