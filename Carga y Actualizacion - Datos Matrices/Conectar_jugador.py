@@ -97,52 +97,72 @@ def verSelecciones(jugador):
 # Menú principal
 def menu():
     while True:
-        # Menú de selección de jugador
-        while True:
-            print("\n--- SELECCIÓN JUGADOR ---\n")
-            print("1. Jugador 1 (X).")
-            print("2. Jugador 2 (O)")
-            print("3. Salir\n")
-            opcion = input("Opción: ")
+        print("\n--- MENÚ PRINCIPAL ---\n")
+        print("1. Crear un nuevo juego.")
+        print("2. Unirse a un juego existente.")
+        print("3. Salir.\n")
+        opcion = input("Opción: ")
 
-            if opcion == "1":
-                print("Ha seleccionado ser el jugador 1.")
-                jugador = "X"
-                break  # Salimos al menú de acciones
-            elif opcion == "2":
-                print("Ha seleccionado ser el jugador 2.")
-                jugador = "O"
-                break  # Salimos al menú de acciones
-            elif opcion == "3":
-                print("Saliendo del programa.")
-                return  # Finaliza el programa
+        if opcion == "1":
+            jugador_1 = input("Ingrese el nombre del Jugador 1: ")
+            jugador_2 = input("Ingrese el nombre del Jugador 2 (puede ser añadido luego): ")
+            game_id = crear_juego(jugador_1, jugador_2)  # Crea un nuevo juego
+            print(f"El juego ha sido creado exitosamente. Comparta este ID con el otro jugador: {game_id}")
+        elif opcion == "2":
+            game_id = input("Ingrese el ID del juego para unirse: ")
+            game_ref = unirse_al_juego(game_id)  # Intenta conectarse al juego con el ID proporcionado
+
+            if game_ref:
+                print("¡Conexión exitosa al juego!")
+                jugador = seleccionar_jugador(game_ref)  # Selecciona si eres Jugador 1 o Jugador 2
+                manejar_juego(game_ref, jugador)  # Comienza el juego
             else:
-                print("La opción ingresada no es válida.")
+                print("Error: No se pudo conectar al juego. Verifique el ID.")
+        elif opcion == "3":
+            print("Saliendo del programa. ¡Gracias por jugar!")
+            break
+        else:
+            print("Opción ingresada no válida.")
 
-        # Menú de acciones para el jugador seleccionado
-        while True:
-            print("\n--- MENÚ ---\n")
-            print("1. Ingreso de coordenadas.")
-            print("2. Visualizar selecciones.")
-            print("3. Cambiar de jugador.")
-            print("4. Salir del programa.\n")
-            opcion = input("Opción: ")
+# Función para seleccionar jugador
+def seleccionar_jugador(game_ref):
+    while True:
+        print("\n--- SELECCIÓN DE JUGADOR ---\n")
+        print("1. Soy el Jugador 1.")
+        print("2. Soy el Jugador 2.")
+        print("3. Salir.\n")
+        opcion = input("Opción: ")
 
-            if opcion == "1":
-                ingresoCoordenada(jugador)
-            elif opcion == "2":
-                verSelecciones(jugador)
-            elif opcion == "3":
-                print("Regresando al menú de selección de jugador...")
-                break  # Regresa al menú de selección de jugador
-            elif opcion == "4":
-                print("Saliendo del programa, gracias.")
-                return  # Finaliza el programa
-            else:
-                print("Opción ingresada no válida.")
-#ejecucion codigo 
+        if opcion == "1":
+            return "Jugador_1"
+        elif opcion == "2":
+            return "Jugador2"
+        elif opcion == "3":
+            print("Regresando al menú principal.")
+            return None
+        else:
+            print("Opción ingresada no válida.")
+
+# Función para manejar el juego
+def manejar_juego(game_ref, jugador):
+    if not jugador:
+        return
+
+    while True:
+        print("\n--- MENÚ DE JUEGO ---\n")
+        print("1. Ingresar coordenadas.")
+        print("2. Visualizar el tablero.")
+        print("3. Salir del juego.\n")
+        opcion = input("Opción: ")
+
+        if opcion == "1":
+            ingresoCoordenada(jugador)
+        elif opcion == "2":
+            verSelecciones(jugador)
+        elif opcion == "3":
+            print("Saliendo del juego. ¡Hasta luego!")
+            break
+        else:
+            print("Opción ingresada no válida.")
+############################################
 menu()
-
-
-#/////////////////////////////////////////////////////////////////////////////////////////////////
-
