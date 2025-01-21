@@ -4,12 +4,17 @@ import re
 
 
 #Conectar a firebase
-cred = firebase_admin.credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = firebase_admin.credentials.Certificate(r"C:\Users\MIANO\Documents\Proyectos Python\Python\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 default_app = firebase_admin.initialize_app(cred, {
     'databaseURL':"https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
 
 #[][][][][][][][][][]-- INICIALIZACIÓN FIREBASE --[][][][][][][][][][][][][][]
+#peticion de borrar datos inicial 
+#se podria crear dos nodos y restingir el codigo a la seleccion inicial hasta que se cierre el programa 
+#menu de inicio o creacion de partida, al crearla
+#variable de juego para los turnos, hacer la peticion de autenticar atributo para los turnos
+#coordenada de jugador 1 y 2
 
 #Referencia al nodo en la base de datos
 refe= db.reference("Datos_del_usuario") #Genera un nodo de informacion diferente
@@ -21,6 +26,11 @@ refe= db.reference("Datos_del_usuario") #Genera un nodo de informacion diferente
 # Referencias
 juego = db.reference("Juego")  # Nodo principal del juego
 coordenadas_juego = juego.child("Coordenadas")  # Subnodo para las coordenadas
+jugador_1=juego.child("Jugador_1")#se crea un subnodo
+jugador_2=juego.child("Jugador_2")
+
+
+#def seleccionJugador():
 
 
 # Funciones principales
@@ -33,6 +43,19 @@ def imprimirMatrix(matrizI):
     for fila in matrizI:
         print(" ".join(fila)) #fusiona todo en una cadena de caracteres separada por espacios en blanco "-"
     print()
+
+def limpiarMatriz():
+    print("Eliminando los datos previos del tablero")
+    coordenadas_juego.delete()
+    print("Los datos han sido eliminados correctamente")
+
+def iniciarPartida():
+    while True:
+        print("---Batalla Naval---")
+        print("¿Que desea hacer?")
+        print("1. Cargar partida")
+        print("2. Iniciar Partida")
+        
 
 def ingresoCoordenada(jugador):
     coordenadaActuales=coordenadas_juego.get() or {}
@@ -82,6 +105,8 @@ def verSelecciones(jugador):
 
 
 def menu():
+
+    limpiarMatriz()
   
     while True:
         while True:
