@@ -56,13 +56,32 @@ def unirse_al_juego(game_id): #Se hace una función que permita que otro jugador
 
 # Referencias
 juego = db.reference("Juego")  # Nodo principal del juego
-coordenadas_juego = juego.child("Coordenadas")  # Subnodo para las coordenadas
+#coordenadas_juego = juego.child("Coordenadas")  # Subnodo para las coordenadas
 jugador_1=juego.child("Jugador_1")#se crea un subnodo
 jugador_2=juego.child("Jugador_2")
 
 
-#def seleccionJugador():
 
+def seleccionJugador():
+    while True:
+        print("\n--- SELECION JUGADOR ---\n")
+        print("1. Jugador 1 (X).")
+        print("2. Jugador 2 (O)")
+        print("3. Salir\n")
+        opcion=input("Opcion: ")
+
+        if(opcion=="1"):
+            print("Ha selecionado ser el jugador 1.")
+            return "x", db.reference("Juego/Jugador_1/Coordenada") #nodo para el jugador 1
+        elif(opcion=="2"):
+            print("Ha selecionado ser el jugador 2.")
+            return "O", db.reference("Juego/Jugador_2/Coordenada") #Nodo para el jugaodr 2 
+        elif(opcion=="3"):
+            print("Saliendo del programa.")
+            return None, None
+        else:
+            print("La opcion ingresada no es valida")
+    
 
 # Funciones principales
 def matrizI():
@@ -75,20 +94,13 @@ def imprimirMatrix(matrizI):
         print(" ".join(fila)) #fusiona todo en una cadena de caracteres separada por espacios en blanco "-"
     print()
 
-def limpiarMatriz():
+def limpiarMatriz(coordenadas_juego):
     print("Eliminando los datos previos del tablero")
     coordenadas_juego.delete()
     print("Los datos han sido eliminados correctamente")
 
-def iniciarPartida():
-    while True:
-        print("---Batalla Naval---")
-        print("¿Que desea hacer?")
-        print("1. Cargar partida")
-        print("2. Iniciar Partida")
         
-
-def ingresoCoordenada(jugador):
+def ingresoCoordenada(jugador,coordenadas_juego):
     coordenadaActuales=coordenadas_juego.get() or {}
     matriz=matrizI()
 
@@ -115,12 +127,11 @@ def ingresoCoordenada(jugador):
             matriz[int(fila)][int(columna)]=jugador
             coordenadas_juego.push(coordenada) #carga la coordenada en la base de datos
             print(f"Coordenada {coordenada} guardada exitosamente")
-
             break
     #imprimirMatrix(matriz)
 
 
-def verSelecciones(jugador):
+def verSelecciones(jugador,coordenadas_juego):
     #traer los datos de coordenada guardados en firebase
     coordenadaActuales=coordenadas_juego.get() or {}
     matriz=matrizI()
@@ -137,30 +148,14 @@ def verSelecciones(jugador):
 
 def menu():
 
-    limpiarMatriz()
+    print("Configurando el tablero.")
+    jugador,coordenadas_juego=seleccionJugador() #seleccion del jugador y nodo asociado 
+    if not jugador: #si seleccionan "salir"
+        return
+
+    limpiarMatriz(coordenadas_juego)
   
     while True:
-        while True:
-            print("\n--- SELECION JUGADOR ---\n")
-            print("1. Jugador 1 (X).")
-            print("2. Jugador 2 (O)")
-            print("3. Salir\n")
-            opcion=input("Opcion: ")
-
-            if(opcion=="1"):
-                print("Ha selecionado ser el jugador 1.")
-                jugador="X"
-                break
-            elif(opcion=="2"):
-                print("Ha selecionado ser el jugador 2.")
-                jugador="O"
-                break
-            elif(opcion=="3"):
-                print("Saliendo del programa.")
-                return opcion
-            else:
-                print("La opcion ingresada no es valida")
-
 
         while True:
             print("\n--- MENU ---\n")
@@ -170,11 +165,11 @@ def menu():
             opcion=input("Opcion: ")
 
             if(opcion=="1"):
-                ingresoCoordenada(jugador)
+                ingresoCoordenada(jugador,coordenadas_juego)
                 break
 
             elif(opcion=="2"):
-                verSelecciones(jugador)
+                verSelecciones(jugador,coordenadas_juego)
                 break
             elif(opcion=="3"):
                 print("Saliendo del programa, gracias.")
@@ -188,4 +183,3 @@ menu()
 
 
 #/////////////////////////////////////////////////////////////////////////////////////////////////
-
