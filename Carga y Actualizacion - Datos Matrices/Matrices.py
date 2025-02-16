@@ -4,7 +4,7 @@ import re
 
 
 #Conectar a firebase
-cred = firebase_admin.credentials.Certificate(r"C:\Users\MIANO\Documents\Proyectos Python\Python\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = firebase_admin.credentials.Certificate(r"C:\Users\julia\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 default_app = firebase_admin.initialize_app(cred, {
     'databaseURL':"https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
