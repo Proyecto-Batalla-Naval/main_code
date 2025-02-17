@@ -4,7 +4,7 @@ from firebase_admin import credentials, db
 
 # -------------------------- Firebase -----------------------------
 # Inicializar Firebase con tu certificado y URL
-cred = credentials.Certificate(r"C:\Users\danim\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\MIANO\Documents\Proyectos Python\Python\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -19,23 +19,14 @@ def guardar_datos_jugador(jugador, datos_personales, barcos_completos):
     }
     
     for nombre_barco, info in barcos_completos.items():
-        # Convertir posiciones a formato numérico
-        posiciones_numericas = []
-        for coord in info["posiciones"]:
-            if isinstance(coord, str):  # Si viene como "A1"
-                fila = int(coord[1:]) - 1
-                col = ord(coord[0].upper()) - 65
-                posiciones_numericas.append([fila, col])
-            else:  # Si ya es lista [fila, col]
-                posiciones_numericas.append(coord)
-        
-        data["barcos"].append({
-            "posiciones": posiciones_numericas,
+        barco_firebase = {
+            "nombre": nombre_barco,
+            "posiciones": [[int(coord[1:])-1, ord(coord[0].upper())-65] for coord in info["posiciones"]],
             "tamaño": info["size"],
-            "orientacion": info["orientacion"],
             "impactos": 0,
             "hundido": False
-        })
+        }
+        data["barcos"].append(barco_firebase)
     
     sala_ref.child(jugador).set(data)
 
@@ -60,9 +51,24 @@ def obtener_barcos_oponente(jugador_actual):
     return barcos
 
 def registrar_disparo(jugador, coordenada):
-    # Asegurarse que la coordenada sea una lista de dos enteros
-    coordenada = [int(coordenada[0]), int(coordenada[1])]
-    sala_ref.child(jugador).child("disparos").push(coordenada)
+    oponente = "jugador2" if jugador == "jugador1" else "jugador1"
+    disparo = [int(coordenada[0]), int(coordenada[1])]
+    
+    # Registrar disparo
+    sala_ref.child(jugador).child("disparos").push(disparo)
+    
+    # Actualizar impactos en barcos del oponente
+    barcos_oponente = sala_ref.child(oponente).child("barcos").get() or []
+    for idx, barco in enumerate(barcos_oponente):
+        if disparo in barco['posiciones'] and not barco['hundido']:
+            nuevo_impactos = barco['impactos'] + 1
+            hundido = nuevo_impactos >= barco['tamaño']
+            
+            # Actualizar en Firebase
+            sala_ref.child(oponente).child("barcos").child(str(idx)).update({
+                "impactos": nuevo_impactos,
+                "hundido": hundido
+            })
 
 def set_turno(turno):
     sala_ref.child("turno").set(turno)
@@ -94,7 +100,7 @@ def registrar_usuario_gui(jugador_num):
         # Dibujar cada campo de registro
         y = 200
         for i, campo in enumerate(campos):
-            color = negro if i == campo_actual else azul_bonito
+            color = negro if i == campo_actual else azulsuave
             if i == campo_actual:
                 contenido = texto_ingresado + "_"
             else:
@@ -159,13 +165,14 @@ ancho = 800
 alto = 600
 azul = (0, 0, 150)
 gris = (100, 100, 100)
+azulsuave=(0,90,250)
 rojo = (200, 0, 0)
 blanco = (255, 255, 255)
 negro = (0, 0, 0)
 verde = (0, 190, 0)
 azul_bonito = (61, 145, 197)
 azul_botones = (58, 111, 147)
-COLOR_BARCO = (14, 80, 125)
+COLOR_BARCO = (75, 75, 75)
 COLOR_HUNDIDO = (200, 0, 0)
 COLOR_AGUA = (0, 100, 200)
 COLOR_FONDO = (30, 45, 60)
@@ -179,7 +186,7 @@ inicioY = (alto - (tam_tablero * tam_celda)) // 2 + 40
 # Recursos gráficos y fuentes
 ventana = pygame.display.set_mode((ancho, alto))
 pygame.display.set_caption("Batalla Naval - UN")
-fondo = pygame.image.load("Fondo 1 - 8 Bits.jpg")
+fondo = pygame.image.load("Fondo 1 - 8 bits.jpg")
 fondo2 = pygame.image.load("Fondo 2 - 8 Bits.jpg")
 icono = pygame.image.load("Icono.jpg")
 pygame.display.set_icon(icono)
@@ -472,15 +479,32 @@ def dibujar_grilla_panel(superficie):
     for col in range(GRID_SIZE):
         x = ORIGEN_GRID_X + col * tam_celda + tam_celda//2
         y = ORIGEN_GRID_Y - 20
-        txt = fuente.render(columnas[col], True, azul_botones)
+        txt = fuente.render(columnas[col], True, rojo)
         txt_rect = txt.get_rect(center=(x, y))
         superficie.blit(txt, txt_rect)
     for fila in range(GRID_SIZE):
         x = ORIGEN_GRID_X - 20
         y = ORIGEN_GRID_Y + fila * tam_celda + tam_celda//2
-        txt = fuente.render(str(fila+1), True, azul_botones)
+        txt = fuente.render(str(fila+1), True, rojo)
         txt_rect = txt.get_rect(center=(x, y))
         superficie.blit(txt, txt_rect)
+
+def dibujar_grid_tablero(x, y, tam_celda, grid_size):
+    # Líneas verticales
+    for i in range(grid_size + 1):
+        inicio_x = x + i * tam_celda
+        pygame.draw.line(ventana, negro, 
+                        (inicio_x, y), 
+                        (inicio_x, y + grid_size * tam_celda), 
+                        2)
+    
+    # Líneas horizontales
+    for j in range(grid_size + 1):
+        inicio_y = y + j * tam_celda
+        pygame.draw.line(ventana, negro, 
+                        (x, inicio_y), 
+                        (x + grid_size * tam_celda, inicio_y), 
+                        2)
 
 def dibujar_barcos_panel(superficie):
     for barco in barcos:
@@ -516,7 +540,7 @@ def dibujar_botones_panel(superficie):
         superficie.blit(txt, (rect.x + offset[0], rect.y + offset[1]))
     if all(b['on_board'] for b in barcos):
         pygame.draw.rect(superficie, azul_bonito, boton_inicio)
-        txt = fuente.render("Inicio", True, negro)
+        txt = fuente.render("Inicio", True, blanco)
         superficie.blit(txt, (boton_inicio.x + 10, boton_inicio.y + 10))
 
 def manejar_mousebuttondown_panel(event):
@@ -628,6 +652,7 @@ def coord_str_to_indices(coord):
 
 def dibujar_tablero_defensa(x, y, barcos_propios, disparos_oponente):
     ventana.blit(fondoTablero, (x, y))
+    dibujar_grid_tablero(x, y, tam_celda, GRID_SIZE)  
     dibujar_coordenadas_tablero(x, y, tam_celda, GRID_SIZE)
     
     # Dibujar barcos (ya vienen en formato numérico desde Firebase)
@@ -646,25 +671,56 @@ def dibujar_tablero_defensa(x, y, barcos_propios, disparos_oponente):
 
 def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
     ventana.blit(fondoTablero, (x, y))
+    dibujar_grid_tablero(x, y, tam_celda, GRID_SIZE)
     dibujar_coordenadas_tablero(x, y, tam_celda, GRID_SIZE)
     
+    # Procesar todos los disparos
     for d in disparos_jugador:
         if len(d) == 2:
-            fila, col = map(int, d)  # Asegurar valores enteros
+            fila, col = map(int, d)
             pos_x = x + col * tam_celda
             pos_y = y + fila * tam_celda
-            impacto = [fila, col] in barcos_oponente
             
-            if impacto:
-                # Dibujar X roja
-                pygame.draw.line(ventana, COLOR_HUNDIDO, (pos_x, pos_y), 
-                               (pos_x + tam_celda, pos_y + tam_celda), 3)
-                pygame.draw.line(ventana, COLOR_HUNDIDO, 
-                               (pos_x + tam_celda, pos_y), (pos_x, pos_y + tam_celda), 3)
+            # Verificar impacto y hundimiento
+            impacto = False
+            hundido = False
+            for barco in barcos_oponente:
+                if [fila, col] in barco.get('posiciones', []):
+                    impacto = True
+                    if barco.get('hundido', False):
+                        hundido = True
+                    break
+            
+            if hundido:
+                pygame.draw.rect(ventana, COLOR_HUNDIDO, (pos_x, pos_y, tam_celda, tam_celda))
+            elif impacto:
+                pygame.draw.circle(ventana, rojo, (pos_x + tam_celda//2, pos_y + tam_celda//2), 15)
             else:
-                # Círculo azul
-                pygame.draw.circle(ventana, COLOR_AGUA, 
-                                 (pos_x + tam_celda//2, pos_y + tam_celda//2), 15)
+                pygame.draw.circle(ventana, COLOR_AGUA, (pos_x + tam_celda//2, pos_y + tam_celda//2), 15)
+
+
+
+def mostrar_mensaje_hundido(barcos_oponente):
+    mensajes = []
+    for barco in barcos_oponente:
+        if barco.get('hundido', False):
+            nombre = barco.get('nombre', 'Barco desconocido')
+            tamaño = barco.get('tamaño', 0)
+            mensajes.append(f"¡Hundiste {nombre} ({tamaño} cañones)!")
+    
+    # Posicionamiento mejorado
+    y_pos = 50  # Bajar un poco desde el título
+    for msg in mensajes[-1:]:  # Mostrar últimos 1 mensajes
+        texto = Fuente_opcion.render(msg, True, rojo)
+        fondo_msg = pygame.Surface((texto.get_width() + 20, texto.get_height() + 10))
+        fondo_msg.set_alpha(150)  # Transparencia
+        fondo_msg.fill(negro)
+        ventana.blit(fondo_msg, (ancho//2 - texto.get_width()//2 - 10, y_pos - 5))
+        ventana.blit(texto, (ancho//2 - texto.get_width()//2, y_pos))
+        y_pos += 40
+
+
+#------------------------------------
 
 
 def JuegoAtaque(jugador_actual):
@@ -682,6 +738,7 @@ def JuegoAtaque(jugador_actual):
         ventana.blit(fondo2, (0, 0))
         turno_actual = get_turno()
         oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"
+        barcos_oponente = sala_ref.child(oponente).child("barcos").get() or []
         
         # Obtener datos desde Firebase
         disparos_jugador_data = sala_ref.child(jugador_actual).child("disparos").get()
@@ -690,12 +747,9 @@ def JuegoAtaque(jugador_actual):
         disparos_oponente = list(disparos_oponente_data.values()) if disparos_oponente_data else []
         
         # Obtener posiciones de barcos (convertidos a listas) de ambos jugadores
-        barcos_oponente_data = sala_ref.child(oponente).child("barcos").get() or []
-        posiciones_oponente = []
-        for barco in barcos_oponente_data:
-            if isinstance(barco, dict) and 'posiciones' in barco:
-                posiciones_oponente.extend(barco['posiciones'])
-        
+        barcos_oponente = sala_ref.child(oponente).child("barcos").get() or []
+
+
         mis_barcos_data = sala_ref.child(jugador_actual).child("barcos").get() or []
         mis_barcos = []
         for barco in mis_barcos_data:
@@ -706,12 +760,15 @@ def JuegoAtaque(jugador_actual):
         titulo = Fuente_titulo.render("Fase de Ataque", True, azul)
         ventana.blit(titulo, (ancho//2 - titulo.get_width()//2, 20))
         dibujar_tablero_defensa(inicioX_defensa, inicioY_tableros, mis_barcos, disparos_oponente)
-        dibujar_tablero_ataque(inicioX_ataque, inicioY_tableros, posiciones_oponente, disparos_jugador)
+        dibujar_tablero_ataque(inicioX_ataque, inicioY_tableros, barcos_oponente, disparos_jugador)        
         
         texto_defensa = Fuente_opcion.render("Tu Tablero", True, azul)
         texto_ataque = Fuente_opcion.render("Tablero Enemigo", True, rojo)
-        ventana.blit(texto_defensa, (inicioX_defensa + 50, inicioY_tableros - 40))
-        ventana.blit(texto_ataque, (inicioX_ataque + 30, inicioY_tableros - 40))
+        ventana.blit(texto_defensa, (inicioX_defensa + 50, inicioY_tableros - 80))
+        ventana.blit(texto_ataque, (inicioX_ataque , inicioY_tableros - 80))
+
+        mostrar_mensaje_hundido(barcos_oponente)
+        
         
         if time.time() - mensaje_tiempo < 2:
             mensaje_texto = Fuente_opcion.render(mensaje, True, rojo)
@@ -736,14 +793,16 @@ def JuegoAtaque(jugador_actual):
                     fila, col = celda
                     coordenada = [fila, col]
                     
-                    # Convertir a formato de lista para comparación precisa
                     if not any(d == coordenada for d in disparos_jugador):
                         registrar_disparo(jugador_actual, coordenada)
                         
-                        # Convertir posiciones del oponente a listas para comparar
-                        posiciones_oponente_lista = [list(map(int, pos)) for pos in posiciones_oponente]
+                        # Verificar impacto usando barcos_oponente directamente
+                        impacto = False
+                        for barco in barcos_oponente:
+                            if coordenada in barco.get('posiciones', []):
+                                impacto = True
+                                break
                         
-                        impacto = coordenada in posiciones_oponente_lista
                         mensaje = "¡IMPACTO!" if impacto else "AGUA"
                         mensaje_tiempo = time.time()
                         switch_turn(jugador_actual)
@@ -763,6 +822,7 @@ def ClickTablero(posicionT, inicioX_tablero, inicioY_tablero):
 
 # -------------------------- FASE DEL PANEL (SHIP PLACEMENT) -----------------------------
 def panel_strategy():
+    # Esta función ejecuta la fase de colocación de barcos (panel de estrategia)
     reloj = pygame.time.Clock()
     inicializar_barcos()
     limpiar_grid()
@@ -812,7 +872,7 @@ def main():
     NombreTitulo("Selecciona tu jugador", Fuente_Principal, azul, ventana, ancho//2, 100)
     boton_j1 = OpcionesMenu("Jugador 1", Fuente_opcion, blanco, azul, ventana, ancho//2 - 250, 250, 200, 50)
     boton_j2 = OpcionesMenu("Jugador 2", Fuente_opcion, blanco, azul, ventana, ancho//2 + 50, 250, 200, 50)
-
+   
     pygame.display.flip()
     jugador_num = None
     while jugador_num not in [1, 2]:
@@ -850,4 +910,4 @@ def mostrar_error(mensaje):
 
 if __name__ == '__main__':
     main()
-    
+
