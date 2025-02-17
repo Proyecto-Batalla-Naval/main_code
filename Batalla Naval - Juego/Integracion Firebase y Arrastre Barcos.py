@@ -4,7 +4,7 @@ from firebase_admin import credentials, db
 
 # -------------------------- Firebase -----------------------------
 # Inicializar Firebase con tu certificado y URL
-cred = credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\danim\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -89,12 +89,12 @@ def registrar_usuario_gui(jugador_num):
         ventana.blit(fondo2, (0, 0))
         
         # Título de registro
-        NombreTitulo(f"Registro Jugador {jugador_num}", Fuente_Principal, azul, ventana, ancho//2, 100)
+        NombreTitulo(f"Registro Jugador {jugador_num}", Fuente_Principal, negro, ventana, ancho//2, 100)
 
         # Dibujar cada campo de registro
         y = 200
         for i, campo in enumerate(campos):
-            color = verde if i == campo_actual else gris
+            color = negro if i == campo_actual else azul_bonito
             if i == campo_actual:
                 contenido = texto_ingresado + "_"
             else:
@@ -163,7 +163,9 @@ rojo = (200, 0, 0)
 blanco = (255, 255, 255)
 negro = (0, 0, 0)
 verde = (0, 190, 0)
-COLOR_BARCO = (75, 75, 75)
+azul_bonito = (61, 145, 197)
+azul_botones = (58, 111, 147)
+COLOR_BARCO = (14, 80, 125)
 COLOR_HUNDIDO = (200, 0, 0)
 COLOR_AGUA = (0, 100, 200)
 COLOR_FONDO = (30, 45, 60)
@@ -177,12 +179,14 @@ inicioY = (alto - (tam_tablero * tam_celda)) // 2 + 40
 # Recursos gráficos y fuentes
 ventana = pygame.display.set_mode((ancho, alto))
 pygame.display.set_caption("Batalla Naval - UN")
-fondo = pygame.image.load("Fondo 1 - 8 bits.jpg")
+fondo = pygame.image.load("Fondo 1 - 8 Bits.jpg")
 fondo2 = pygame.image.load("Fondo 2 - 8 Bits.jpg")
 icono = pygame.image.load("Icono.jpg")
 pygame.display.set_icon(icono)
 fondoTablero = pygame.image.load("Fondo Tablero.jpg")
 fondoTablero = pygame.transform.scale(fondoTablero, (tam_tablero * tam_celda, tam_tablero * tam_celda))
+fondoEstrategia = pygame.image.load("Fondo estrategia.jpg")
+fondoEstrategia = pygame.transform.scale(fondoEstrategia, (ancho, alto))
 
 pygame.font.init()
 Fuente_titulo = pygame.font.Font(None, 50)
@@ -468,13 +472,13 @@ def dibujar_grilla_panel(superficie):
     for col in range(GRID_SIZE):
         x = ORIGEN_GRID_X + col * tam_celda + tam_celda//2
         y = ORIGEN_GRID_Y - 20
-        txt = fuente.render(columnas[col], True, rojo)
+        txt = fuente.render(columnas[col], True, azul_botones)
         txt_rect = txt.get_rect(center=(x, y))
         superficie.blit(txt, txt_rect)
     for fila in range(GRID_SIZE):
         x = ORIGEN_GRID_X - 20
         y = ORIGEN_GRID_Y + fila * tam_celda + tam_celda//2
-        txt = fuente.render(str(fila+1), True, rojo)
+        txt = fuente.render(str(fila+1), True, azul_botones)
         txt_rect = txt.get_rect(center=(x, y))
         superficie.blit(txt, txt_rect)
 
@@ -498,7 +502,7 @@ def dibujar_barcos_panel(superficie):
         color = gris if selected else COLOR_BARCO
         rect = pygame.Rect(px, py, w, h)
         pygame.draw.rect(superficie, color, rect)
-        pygame.draw.rect(superficie, verde, rect, 2)
+        pygame.draw.rect(superficie, azul_bonito, rect, 2)
 
 def dibujar_botones_panel(superficie):
     botones = [
@@ -507,12 +511,12 @@ def dibujar_botones_panel(superficie):
         (boton_aleatorio, "Aleatorio", (5, 10))
     ]
     for rect, text, offset in botones:
-        pygame.draw.rect(superficie, azul, rect)
+        pygame.draw.rect(superficie, azul_botones, rect)
         txt = fuente.render(text, True, negro)
         superficie.blit(txt, (rect.x + offset[0], rect.y + offset[1]))
     if all(b['on_board'] for b in barcos):
-        pygame.draw.rect(superficie, rojo, boton_inicio)
-        txt = fuente.render("Inicio", True, blanco)
+        pygame.draw.rect(superficie, azul_bonito, boton_inicio)
+        txt = fuente.render("Inicio", True, negro)
         superficie.blit(txt, (boton_inicio.x + 10, boton_inicio.y + 10))
 
 def manejar_mousebuttondown_panel(event):
@@ -759,7 +763,6 @@ def ClickTablero(posicionT, inicioX_tablero, inicioY_tablero):
 
 # -------------------------- FASE DEL PANEL (SHIP PLACEMENT) -----------------------------
 def panel_strategy():
-    # Esta función ejecuta la fase de colocación de barcos (panel de estrategia)
     reloj = pygame.time.Clock()
     inicializar_barcos()
     limpiar_grid()
@@ -775,7 +778,9 @@ def panel_strategy():
                 manejar_mousemotion_panel(event)
             elif event.type == pygame.MOUSEBUTTONUP:
                 manejar_mousebuttonup_panel(event)
-        ventana.fill(COLOR_FONDO)
+        ventana.blit(fondoEstrategia, (0, 0))
+        NombreTitulo("Panel de Estrategia", Fuente_opcion, negro, ventana, ancho//2, 30)
+
         dibujar_grilla_panel(ventana)
         dibujar_barcos_panel(ventana)
         dibujar_botones_panel(ventana)
@@ -805,8 +810,9 @@ def main():
     # Selección de jugador (en este ejemplo, se asume que el usuario es jugador1)
     ventana.blit(fondo2, (0,0))
     NombreTitulo("Selecciona tu jugador", Fuente_Principal, azul, ventana, ancho//2, 100)
-    boton_j1 = OpcionesMenu("Jugador 1", Fuente_opcion, blanco, azul, ventana, ancho//2 - 150, 250, 200, 50)
+    boton_j1 = OpcionesMenu("Jugador 1", Fuente_opcion, blanco, azul, ventana, ancho//2 - 250, 250, 200, 50)
     boton_j2 = OpcionesMenu("Jugador 2", Fuente_opcion, blanco, azul, ventana, ancho//2 + 50, 250, 200, 50)
+
     pygame.display.flip()
     jugador_num = None
     while jugador_num not in [1, 2]:
