@@ -4,7 +4,7 @@ from firebase_admin import credentials, db
 
 # -------------------------- Firebase -----------------------------
 # Inicializar Firebase con tu certificado y URL
-cred = credentials.Certificate(r"C:\Users\julia\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b779ebc791.json")
+cred = credentials.Certificate(r"C:\Users\julia\OneDrive\Documentos\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba (1).json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -31,8 +31,11 @@ def guardar_datos_jugador(jugador, datos_personales, barcos_completos):
     sala_ref.child(jugador).set(data)
 
 def esperar_oponente():
+    start_time = time.time()
     # Espera a que ambos jugadores se hayan registrado
     while True:
+        if time.time() - start_time > 30:
+            raise Exception("Tiempo de espera agotado. El oponente no se conectó.")
         sala = sala_ref.get()
         if sala and "jugador1" in sala and "jugador2" in sala:
             print("Ambos jugadores están listos.")
@@ -47,7 +50,10 @@ def obtener_barcos_oponente(jugador_actual):
     for barco in data:
         if isinstance(barco, dict) and 'posiciones' in barco:
             # Convertir cada posición a lista de enteros
-            barcos.extend([list(map(int, pos)) for pos in barco['posiciones']])
+                        barcos.extend([[
+                int(pos[0]) if isinstance(pos[0], str) else pos[0],
+                int(pos[1]) if isinstance(pos[1], str) else pos[1]
+            ] for pos in barco['posiciones']]) 
     return barcos
 
 def registrar_disparo(jugador, coordenada):
@@ -95,25 +101,51 @@ def registrar_usuario_gui(jugador_num):
         ventana.blit(fondo2, (0, 0))
         
         # Título de registro
-        NombreTitulo(f"Registro Jugador {jugador_num}", Fuente_Principal, negro, ventana, ancho//2, 100)
+        NombreTitulo(f"Registro Jugador {jugador_num}", Fuente_Principal, negro, ventana, ANCHO_PANTALLA//2, 100)
 
         # Dibujar cada campo de registro
-        y = 200
+        y_base = 200 * escala_y  # Escalar posición Y
+        espacio_entre_campos = 60 * escala_y
+
         for i, campo in enumerate(campos):
             color = negro if i == campo_actual else azulsuave
+
             if i == campo_actual:
                 contenido = texto_ingresado + "_"
             else:
                 contenido = datos[campo]
+
+    # ✅ Define `texto` antes de llamar `get_rect()`
             texto = Fuente_opcion.render(f"{campo}: {contenido}", True, color)
-            ventana.blit(texto, (100, y + i * 60))
+
+            texto_rect = texto.get_rect(center=(ANCHO_PANTALLA//2, y_base + i * espacio_entre_campos))
+            ventana.blit(texto, texto_rect)
+
 
         if all(datos.values()):
-            boton_confirmar = OpcionesMenu("Confirmar", Fuente_opcion, blanco, azul, ventana, ancho//2 - 100, 450, 200, 50)
+            # Configurar botón
+            boton_ancho = int(200 * escala_x)
+            boton_alto = int(50 * escala_y)
+            boton_x = ANCHO_PANTALLA//2 - boton_ancho//2  # Centrado horizontal
+            boton_y = int(450 * escala_y)
+    
+    boton_confirmar = pygame.Rect(boton_x, boton_y, boton_ancho, boton_alto)
+    
+    # Dibujar botón
+    pygame.draw.rect(ventana, azul, boton_confirmar, border_radius=int(10 * escala_x))
+    texto_confirmar = Fuente_opcion.render("Confirmar", True, blanco)
+    ventana.blit(texto_confirmar, texto_confirmar.get_rect(center=boton_confirmar.center))
+    
+    # Detectar clic (reemplazar el código de eventos)
+    if event.type == pygame.MOUSEBUTTONDOWN:
+        pos = pygame.mouse.get_pos()
+        if boton_confirmar.collidepoint(pos):
+            # Lógica de confirmación aquí
 
-        if mostrar_error:
-            error_texto = Fuente_opcion.render(error_msg, True, rojo)
-            ventana.blit(error_texto, (100, 400))
+            if mostrar_error and error_msg:  # ✅ Verifica que error_msg no esté vacío
+                error_texto = Fuente_opcion.render(error_msg, True, rojo)
+                ventana.blit(error_texto, (100, 400))
+
 
         pygame.display.flip()
 
@@ -121,7 +153,10 @@ def registrar_usuario_gui(jugador_num):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-                
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
                     if campo_actual == 2:
@@ -161,8 +196,18 @@ def registrar_usuario_gui(jugador_num):
 pygame.init()
 
 # Dimensiones y colores
-ancho = 800
-alto = 600
+screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+ANCHO_VENTANA, ALTO_VENTANA = screen.get_size()
+info = pygame.display.Info()
+ANCHO_PANTALLA = info.current_w    # Ejemplo: 1920 (depende de tu monitor)
+ALTO_PANTALLA = info.current_h     # Ejemplo: 1080
+ventana = pygame.display.set_mode((ANCHO_PANTALLA, ALTO_PANTALLA), pygame.FULLSCREEN)
+# Factores de escalado
+BASE_WIDTH = 1920
+BASE_HEIGHT = 1080
+escala_x = ANCHO_PANTALLA / BASE_WIDTH
+escala_y = ALTO_PANTALLA / BASE_HEIGHT
+
 azul = (0, 0, 150)
 gris = (100, 100, 100)
 azulsuave=(0,90,250)
@@ -179,28 +224,38 @@ COLOR_FONDO = (30, 45, 60)
 
 # Parámetros para la fase de ataque (tablero)
 tam_tablero = 7
-tam_celda = 40
-inicioX = (ancho - (tam_tablero * tam_celda)) // 2
-inicioY = (alto - (tam_tablero * tam_celda)) // 2 + 40
+tam_celda = int(40 * min(escala_x, escala_y))  # Escala proporcional
+inicioX = (ANCHO_PANTALLA - (tam_tablero * tam_celda)) // 2  # Centrado horizontal
+inicioY = (ALTO_PANTALLA - (tam_tablero * tam_celda)) // 2 + int(40 * escala_y)  # Ajuste escalado
 
 # Recursos gráficos y fuentes
-ventana = pygame.display.set_mode((ancho, alto))
+def escalar_imagen(ruta_imagen, ancho, alto):
+    imagen = pygame.image.load(ruta_imagen)  # Carga la imagen
+    imagen_escalada = pygame.transform.scale(imagen, (ancho, alto))  # Escala la imagen
+    return imagen_escalada
+
+        
 pygame.display.set_caption("Batalla Naval - UN")
-fondo = pygame.image.load("Fondo 1 - 8 bits.jpg")
-fondo2 = pygame.image.load("Fondo 2 - 8 Bits.jpg")
-icono = pygame.image.load("Icono.jpg")
+
+fondo = escalar_imagen("Fondo 1 - 8 bits.jpg", 800, 600)
+fondo = pygame.transform.scale(fondo, (ANCHO_VENTANA, ALTO_VENTANA))
+fondo2 = escalar_imagen("Fondo 2 - 8 Bits.jpg", 800, 600)
+fondo2 = pygame.transform.scale(fondo2, (ANCHO_VENTANA, ALTO_VENTANA))
+icono = escalar_imagen("Icono.jpg", 32, 32)  # Tamaño original del ícono
+fondoTablero = escalar_imagen("Fondo Tablero.jpg", 280, 280)
+fondoEstrategia = escalar_imagen("Fondo estrategia.jpg", 800, 600)
+
+
 pygame.display.set_icon(icono)
-fondoTablero = pygame.image.load("Fondo Tablero.jpg")
-fondoTablero = pygame.transform.scale(fondoTablero, (tam_tablero * tam_celda, tam_tablero * tam_celda))
-fondoEstrategia = pygame.image.load("Fondo estrategia.jpg")
-fondoEstrategia = pygame.transform.scale(fondoEstrategia, (ancho, alto))
 
 pygame.font.init()
-Fuente_titulo = pygame.font.Font(None, 50)
-Fuente_opcion = pygame.font.Font(None, 55)
-Fuente_Principal = pygame.font.Font(None, 65)
-letras_Tablero = pygame.font.Font(None, 40)
+tamaño_base = int(24 * min(escala_x, escala_y))  # Escala proporcional
+Fuente_titulo = pygame.font.Font(None, int(tamaño_base * 2.0))
+Fuente_opcion = pygame.font.Font(None, int(tamaño_base * 1.8))
+Fuente_Principal = pygame.font.Font(None, int(tamaño_base * 2.5))
+letras_Tablero = pygame.font.Font(None, int(tamaño_base * 1.5))
 fuente = pygame.font.SysFont(None, 24)
+
 
 # -------------------------- Funciones de Menú e Interfaz -----------------------------
 def NombreTitulo(textoTitulo, fuenteTitulo, color, ventana, x, y):
@@ -208,52 +263,182 @@ def NombreTitulo(textoTitulo, fuenteTitulo, color, ventana, x, y):
     ajuste = principalTitulo.get_rect(center=(x, y))
     ventana.blit(principalTitulo, ajuste)
 
-def OpcionesMenu(textoOpcion, fuenteOpcion, color, colorRect, ventana, x, y, anchoo, altoo):
-    botonRect = pygame.Rect(x, y, anchoo, altoo)
-    pygame.draw.rect(ventana, colorRect, botonRect)
-    opcion = fuenteOpcion.render(textoOpcion, True, color)
-    txtRect = opcion.get_rect(center=botonRect.center)
-    ventana.blit(opcion, txtRect)
-    return botonRect
-
 def MenuPrincipal():
     while True:
         ventana.blit(fondo, (0, 0))
-        NombreTitulo("BATALLA NAVAL - INTERACTIVO", Fuente_Principal, azul, ventana, ancho//2, alto//6)
-        BotonJuego = OpcionesMenu("Jugar", Fuente_opcion, azul, blanco, ventana, ancho//2-120, alto//2-75, 250, 80)
-        BotonSalir = OpcionesMenu("Salir", Fuente_opcion, verde, blanco, ventana, ancho//2-120, alto//2+50, 250, 80)
+        titulo = Fuente_Principal.render("BATALLA NAVAL", True, azul)
+        titulo_rect = titulo.get_rect(center=(ANCHO_PANTALLA//2, int(ALTO_PANTALLA * 0.1)))
+        ventana.blit(titulo, titulo_rect)
+        boton_ancho = int(400 * escala_x)
+        boton_alto = int(100 * escala_y)
+        espacio = int(50 * escala_y)
+
+        BotonJuego = pygame.Rect(
+            ANCHO_PANTALLA//2 - boton_ancho//2,  # Centrado horizontal
+            ALTO_PANTALLA//2 - boton_alto - espacio,  # Posición Y
+            boton_ancho,
+            boton_alto
+        )
+        pygame.draw.rect(ventana, azulsuave, BotonJuego, border_radius=int(15 * escala_x))
+        texto_jugar = Fuente_opcion.render("JUGAR", True, blanco)
+        ventana.blit(texto_jugar, texto_jugar.get_rect(center=BotonJuego.center))
+
+        # Botón Salir (debajo de Jugar)
+        BotonSalir = pygame.Rect(
+            ANCHO_PANTALLA//2 - boton_ancho//2,  # Mismo X que Jugar
+            ALTO_PANTALLA//2 + espacio,  # Posición Y debajo del centro
+            boton_ancho,
+            boton_alto
+        )
+        pygame.draw.rect(ventana, rojo, BotonSalir, border_radius=int(15 * escala_x))
+        texto_salir = Fuente_opcion.render("SALIR", True, blanco)
+        ventana.blit(texto_salir, texto_salir.get_rect(center=BotonSalir.center))
+
+        
+        # Posición inicial vertical
+        y_base = int(ALTO_PANTALLA * 0.35)
+        
+        BotonJuego = pygame.Rect(
+            ANCHO_PANTALLA//2 - boton_ancho//2,
+            ALTO_PANTALLA//2 - boton_alto - espacio,
+            boton_ancho,
+            boton_alto
+        )
+        pygame.draw.rect(ventana, azulsuave, BotonJuego, border_radius=15)
+        texto_jugar = Fuente_opcion.render("JUGAR", True, blanco)
+        ventana.blit(texto_jugar, texto_jugar.get_rect(center=BotonJuego.center))
+        
+        # Botón Salir (debajo de Jugar con espacio)
+        BotonSalir = pygame.Rect(
+            ANCHO_PANTALLA//2 - boton_ancho//2,
+            ALTO_PANTALLA//2 + espacio,
+            boton_ancho,
+            boton_alto
+        )
+        pygame.draw.rect(ventana, rojo, BotonSalir, border_radius=15)
+        texto_salir = Fuente_opcion.render("SALIR", True, blanco)
+        ventana.blit(texto_salir, texto_salir.get_rect(center=BotonSalir.center))
+        boton_cerrar = pygame.Rect(
+            ANCHO_PANTALLA - int(50 * escala_x),
+            int(20 * escala_y),
+            int(40 * escala_x),
+            int(40 * escala_y)
+        )
+        pygame.draw.rect(ventana, rojo, boton_cerrar, border_radius=20)
+        # Dibujar "X"
+        pygame.draw.line(ventana, blanco, 
+                        (boton_cerrar.x + 10 * escala_x, boton_cerrar.y + 10 * escala_y),
+                        (boton_cerrar.x + 30 * escala_x, boton_cerrar.y + 30 * escala_y), 
+                        int(4 * escala_x))
+        pygame.draw.line(ventana, blanco, 
+                        (boton_cerrar.x + 30 * escala_x, boton_cerrar.y + 10 * escala_y),
+                        (boton_cerrar.x + 10 * escala_x, boton_cerrar.y + 30 * escala_y), 
+                        int(4 * escala_x))
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
-                posMou = pygame.mouse.get_pos()
-                if BotonJuego.collidepoint(posMou):
+                pos = pygame.mouse.get_pos()
+                if BotonJuego.collidepoint(pos):
                     return "jugar"
-                if BotonSalir.collidepoint(posMou):
+                elif BotonSalir.collidepoint(pos) or boton_cerrar.collidepoint(pos):
+                    confirmar_salida()
+        
+        pygame.display.flip()
+def confirmar_salida():
+    # Fondo semitransparente
+    overlay = pygame.Surface((ANCHO_PANTALLA, ALTO_PANTALLA))
+    overlay.set_alpha(150)
+    overlay.fill(negro)
+    ventana.blit(overlay, (0, 0))
+    
+    # Cuadro de diálogo
+    cuadro_ancho = int(600 * escala_x)
+    cuadro_alto = int(300 * escala_y)
+    cuadro = pygame.Rect(
+        (ANCHO_PANTALLA - cuadro_ancho) // 2,
+        (ALTO_PANTALLA - cuadro_alto) // 2,
+        cuadro_ancho,
+        cuadro_alto
+    )
+    pygame.draw.rect(ventana, gris, cuadro, border_radius=15)
+    
+    # Texto
+    texto = Fuente_titulo.render("¿Salir del juego?", True, blanco)
+    ventana.blit(texto, texto.get_rect(center=(cuadro.centerx, cuadro.top + 50 * escala_y)))
+    
+    # Botones
+    boton_si = pygame.Rect(
+        cuadro.centerx - 150 * escala_x,
+        cuadro.centery + 50 * escala_y,
+        120 * escala_x,
+        60 * escala_y
+    )
+    boton_no = pygame.Rect(
+        cuadro.centerx + 30 * escala_x,
+        cuadro.centery + 50 * escala_y,
+        120 * escala_x,
+        60 * escala_y
+    )
+    
+    pygame.draw.rect(ventana, rojo, boton_si, border_radius=10)
+    pygame.draw.rect(ventana, verde, boton_no, border_radius=10)
+    
+    texto_si = Fuente_opcion.render("SÍ", True, blanco)
+    texto_no = Fuente_opcion.render("NO", True, blanco)
+    ventana.blit(texto_si, texto_si.get_rect(center=boton_si.center))
+    ventana.blit(texto_no, texto_no.get_rect(center=boton_no.center))
+    
+    pygame.display.flip()
+    
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                if boton_si.collidepoint(pos):
                     pygame.quit()
                     sys.exit()
-        pygame.display.flip()
-
+                elif boton_no.collidepoint(pos):
+                    return
 # -------------------------- PANEL DE ESTRATEGIA (COLOCACIÓN DE BARCOS) -----------------------------
 
 # Parámetros y variables para el panel
 GRID_SIZE = 7
 # Para el panel, usaremos celdas de 40 píxeles y una grilla ubicada en (ORIGEN_GRID_X, ORIGEN_GRID_Y)
-ORIGEN_GRID_X = 300
-ORIGEN_GRID_Y = 100
+ORIGEN_GRID_X = (ANCHO_PANTALLA - (GRID_SIZE * tam_celda)) // 2
+ORIGEN_GRID_Y = (ALTO_PANTALLA - (GRID_SIZE * tam_celda)) // 2
 
 # Lista de tamaños (puedes ajustar la cantidad y tamaños; aquí usamos 6 barcos)
 TAMAÑOS_BARCOS = [4, 3, 3, 2, 2, 1]
 barcos = []   # Lista de barcos (cada uno es un diccionario)
 grid = [[0 for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]  # 0 = libre, 1 = ocupado
 
-# Botones del panel (en la parte inferior)
-boton_vertical = pygame.Rect(50, alto - 80, 120, 40)
-boton_limpiar = pygame.Rect(200, alto - 80, 120, 40)
-boton_aleatorio = pygame.Rect(350, alto - 80, 120, 40)
-boton_inicio = pygame.Rect(500, alto - 80, 120, 40)
+# Botones escalados y posicionados en la parte inferior
+boton_vertical = pygame.Rect(
+    int(50 * escala_x), 
+    int(ALTO_PANTALLA - 80 * escala_y), 
+    int(120 * escala_x), 
+    int(40 * escala_y)
+)
 
+boton_limpiar = pygame.Rect(
+    int(200 * escala_x), 
+    int(ALTO_PANTALLA - 80 * escala_y), 
+    int(120 * escala_x), 
+    int(40 * escala_y)
+)
+
+boton_aleatorio = pygame.Rect(
+    int(350 * escala_x), 
+    int(ALTO_PANTALLA - 80 * escala_y), 
+    int(120 * escala_x), 
+    int(40 * escala_y)
+)
+
+boton_inicio = pygame.Rect(
+    int(500 * escala_x), 
+    int(ALTO_PANTALLA - 80 * escala_y), 
+    int(120 * escala_x), 
+    int(40 * escala_y)
+)
 # Variable para indicar si se inició el juego (después de colocar barcos) y almacenar posiciones
 juego_iniciado = False
 posiciones_barcos = {}
@@ -354,7 +539,21 @@ def puede_colocar(barco, col, fila, vertical):
         if grid[r][c] == 1:
             return False
     return True
-
+def puede_colocar_estricto(barco, col, fila, vertical):
+    size = barco['size']
+    if not dentro_limites(col, fila, size, vertical):
+        return False
+    for i in range(size):
+        r = fila + i if vertical else fila
+        c = col if vertical else col + i
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                nr = r + dr
+                nc = c + dc
+                if 0 <= nr < GRID_SIZE and 0 <= nc < GRID_SIZE:
+                    if grid[nr][nc] == 1:
+                        return False
+    return True
 def colocar_barco_en_grilla(barco, col, fila):
     barco['on_board'] = True
     barco['board_col'] = col
@@ -399,7 +598,7 @@ def randomizar_barcos():
     for barco in barcos:
         placed = False
         attempts = 0
-        while not placed and attempts < 1000:
+        while not placed and attempts < 10000:
             attempts += 1
             orientacion = random.choice([True, False])
             barco['vertical'] = orientacion
@@ -606,7 +805,7 @@ def manejar_mousebuttonup_panel(event):
                 col = (x - ORIGEN_GRID_X) // tam_celda
                 fila = (y - ORIGEN_GRID_Y) // tam_celda
                 if 0 <= col < GRID_SIZE and 0 <= fila < GRID_SIZE:
-                    if puede_colocar(b, col, fila, b['vertical']):
+                    if puede_colocar_estricto(b, col, fila, b['vertical']):
                         colocar_barco_en_grilla(b, col, fila)
                     else:
                         reiniciar_barco_fuera(b)
@@ -620,8 +819,8 @@ def dibujar_coordenadas_tablero(x, y, tam_celda, grid_size):
     for i in range(grid_size):
         texto = letras[i]
         render = letras_Tablero.render(texto, True, negro)
-        ventana.blit(render, (x + i*tam_celda + tam_celda//2 - render.get_width()//2, y - 30))
-
+        offset_y = 30 * escala_y  # Escalar desplazamiento
+        ventana.blit(render, (x + i*tam_celda + tam_celda//2 - render.get_width()//2, y - offset_y))
     # Números (filas)
     for i in range(grid_size):
         texto = str(i+1)
@@ -638,17 +837,22 @@ def dibujar_impacto(x, y, es_impacto):
         pygame.draw.circle(ventana, COLOR_AGUA, rect.center, 15)
 
 def coord_str_to_indices(coord):
-    # Si la coordenada ya es una lista [fila, col], devolver directamente
-    if isinstance(coord, list) and len(coord) == 2:
-        return coord[0], coord[1]
-    
-    # Si es string tipo "A1"
-    columnas = "ABCDEFG"
-    col_letter = coord[0].upper()
-    row = int(coord[1:]) - 1
-    col = columnas.index(col_letter)
-    return row, col
-
+    try:
+        if isinstance(coord, list) and len(coord) == 2:
+            return int(coord[0]), int(coord[1])
+        
+        if isinstance(coord, str):
+            col_letter = coord[0].upper()
+            row_str = coord[1:]
+            if not row_str.isdigit():
+                return None, None
+            row = int(row_str) - 1
+            col = ord(col_letter) - 65
+            return row, col
+        
+        return None, None
+    except (ValueError, IndexError, AttributeError):
+        return None, None
 
 def dibujar_tablero_defensa(x, y, barcos_propios, disparos_oponente):
     ventana.blit(fondoTablero, (x, y))
@@ -673,6 +877,13 @@ def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
     ventana.blit(fondoTablero, (x, y))
     dibujar_grid_tablero(x, y, tam_celda, GRID_SIZE)
     dibujar_coordenadas_tablero(x, y, tam_celda, GRID_SIZE)
+    for barco in barcos_oponente:
+        if barco.get('hundido', False):
+            for pos in barco.get('posiciones', []):
+                fila, col = pos
+                pos_x = x + col * tam_celda
+                pos_y = y + fila * tam_celda
+                pygame.draw.rect(ventana, COLOR_HUNDIDO, (pos_x, pos_y, tam_celda, tam_celda))
     
     # Procesar todos los disparos
     for d in disparos_jugador:
@@ -709,16 +920,28 @@ def mostrar_mensaje_hundido(barcos_oponente):
             mensajes.append(f"¡Hundiste {nombre} ({tamaño} cañones)!")
     
     # Posicionamiento mejorado
-    y_pos = 50  # Bajar un poco desde el título
+    y_pos = 50 * escala_y  # Posición escalada desde el borde superior
     for msg in mensajes[-1:]:  # Mostrar últimos 1 mensajes
         texto = Fuente_opcion.render(msg, True, rojo)
         fondo_msg = pygame.Surface((texto.get_width() + 20, texto.get_height() + 10))
         fondo_msg.set_alpha(150)  # Transparencia
         fondo_msg.fill(negro)
-        ventana.blit(fondo_msg, (ancho//2 - texto.get_width()//2 - 10, y_pos - 5))
-        ventana.blit(texto, (ancho//2 - texto.get_width()//2, y_pos))
-        y_pos += 40
+        ventana.blit(
+        fondo_msg, 
+        (
+            ANCHO_PANTALLA//2 - texto.get_width()//2 - 10 * escala_x,  # Posición X escalada
+            y_pos - 5 * escala_y                                       # Posición Y escalada
+        )
+)
 
+    ventana.blit(
+    texto, 
+    (
+        ANCHO_PANTALLA//2 - texto.get_width()//2,  # Centrado horizontal
+        y_pos                                      # Posición Y (ya escalada si es necesario)
+    )
+)
+    y_pos += 40 * escala_y
 
 #------------------------------------
 
@@ -728,13 +951,25 @@ def JuegoAtaque(jugador_actual):
     run = True
     mensaje = ""
     mensaje_tiempo = 0
-
+    jugador_num = 1 if jugador_actual == "jugador1" else 2
+    
     # Coordenadas de los tableros en la fase de ataque
-    inicioX_defensa = 50
-    inicioX_ataque = ancho//2 + 50
-    inicioY_tableros = 180
+    ancho_tablero = GRID_SIZE * tam_celda
+    espacio = 50 * escala_x
+    centro_x = ANCHO_PANTALLA // 2
+    espacio = 50 * escala_x
+    ancho_tablero = GRID_SIZE * tam_celda
+    inicioX_defensa = centro_x - ancho_tablero - espacio//2
+    inicioX_ataque = centro_x + espacio//2
+    inicioY_tableros = (ALTO_PANTALLA - ancho_tablero) // 2
+    inicioX_ataque = (ANCHO_PANTALLA//2 + espacio//2)
+    
 
     while run:
+        turno_actual = get_turno()
+        if turno_actual is None:
+            set_turno("jugador1" if jugador_num == 1 else "jugador2")
+            continue
         ventana.blit(fondo2, (0, 0))
         turno_actual = get_turno()
         oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"
@@ -758,7 +993,13 @@ def JuegoAtaque(jugador_actual):
         
         # Dibujar interfaz de ataque
         titulo = Fuente_titulo.render("Fase de Ataque", True, azul)
-        ventana.blit(titulo, (ancho//2 - titulo.get_width()//2, 20))
+        ventana.blit(
+    titulo, 
+    (
+        ANCHO_PANTALLA//2 - titulo.get_width()//2,  # Centrado horizontal
+        20 * escala_y                                # Posición Y escalada
+    )
+)
         dibujar_tablero_defensa(inicioX_defensa, inicioY_tableros, mis_barcos, disparos_oponente)
         dibujar_tablero_ataque(inicioX_ataque, inicioY_tableros, barcos_oponente, disparos_jugador)        
         
@@ -772,11 +1013,23 @@ def JuegoAtaque(jugador_actual):
         
         if time.time() - mensaje_tiempo < 2:
             mensaje_texto = Fuente_opcion.render(mensaje, True, rojo)
-            ventana.blit(mensaje_texto, (ancho//2 - mensaje_texto.get_width()//2, alto - 100))
+            ventana.blit(
+    mensaje_texto, 
+    (
+        ANCHO_PANTALLA//2 - mensaje_texto.get_width()//2,  # Centrado horizontal
+        ALTO_PANTALLA - 100 * escala_y                      # Posición Y escalada desde abajo
+    )
+)
         
         texto_turno = Fuente_opcion.render("Tu turno" if turno_actual == jugador_actual else "Turno del oponente",
                                             True, verde if turno_actual == jugador_actual else rojo)
-        ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
+        ventana.blit(
+    texto_turno,
+    (
+        ANCHO_PANTALLA//2 - texto_turno.get_width()//2,  # Centrado horizontal
+        ALTO_PANTALLA - 50 * escala_y                     # 50 píxeles desde el fondo (escalado)
+    )
+)
         
         pygame.display.flip()
         
@@ -785,6 +1038,10 @@ def JuegoAtaque(jugador_actual):
                 run = False
                 pygame.quit()
                 sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN and turno_actual == jugador_actual:
                 pos = pygame.mouse.get_pos()
                 celda = ClickTablero(pos, inicioX_ataque, inicioY_tableros)
@@ -832,6 +1089,10 @@ def panel_strategy():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 manejar_mousebuttondown_panel(event)
             elif event.type == pygame.MOUSEMOTION:
@@ -839,8 +1100,20 @@ def panel_strategy():
             elif event.type == pygame.MOUSEBUTTONUP:
                 manejar_mousebuttonup_panel(event)
         ventana.blit(fondoEstrategia, (0, 0))
-        NombreTitulo("Panel de Estrategia", Fuente_opcion, negro, ventana, ancho//2, 30)
+        NombreTitulo("Panel de Estrategia", Fuente_opcion, negro, ventana, ANCHO_PANTALLA//2, 30 * escala_y)
+        # Botones centrados en la parte inferior
+        button_width = int(120 * escala_x)
+        button_height = int(40 * escala_y)
+        space_between = int(50 * escala_x)  # Espacio entre botones
+        total_width = (4 * button_width) + (3 * space_between)  # Ancho total de los 4 botones + espacios
+        start_x = (ANCHO_PANTALLA - total_width) // 2  # Calcula posición inicial X para centrar
+        y_position = ALTO_PANTALLA - int(80 * escala_y)  # Posición Y fija en la parte inferior
 
+        # Crear rectángulos para los botones
+        # Usar variables escaladas para posiciones
+        boton_vertical_x = 50 * escala_x
+        boton_vertical_y = ALTO_PANTALLA - 80 * escala_y
+        boton_vertical = pygame.Rect(boton_vertical_x, boton_vertical_y, ...)
         dibujar_grilla_panel(ventana)
         dibujar_barcos_panel(ventana)
         dibujar_botones_panel(ventana)
@@ -868,31 +1141,75 @@ def main():
     resetear_sala()
 
     # Selección de jugador (en este ejemplo, se asume que el usuario es jugador1)
+# Selección de jugador (en este ejemplo, se asume que el usuario es jugador1)
     ventana.blit(fondo2, (0,0))
-    NombreTitulo("Selecciona tu jugador", Fuente_Principal, azul, ventana, ancho//2, 100)
-    boton_j1 = OpcionesMenu("Jugador 1", Fuente_opcion, blanco, azul, ventana, ancho//2 - 250, 250, 200, 50)
-    boton_j2 = OpcionesMenu("Jugador 2", Fuente_opcion, blanco, azul, ventana, ancho//2 + 50, 250, 200, 50)
-   
+    NombreTitulo("Selecciona tu jugador", Fuente_Principal, azul, ventana, ANCHO_PANTALLA//2, 100)
+    centro_x = ANCHO_PANTALLA // 2
+    # Escalar posiciones y tamaños
+    boton_ancho = 200 * escala_x
+    boton_alto = 50 * escala_y
+    pos_x_j1 = centro_x - 250 * escala_x
+    pos_y = 250 * escala_y
+
+    # Configurar parámetros escalados
+    boton_ancho = int(200 * escala_x)
+    boton_alto = int(50 * escala_y)
+    espacio_horizontal = int(20 * escala_x)  # Espacio entre botones
+
+# Botón Jugador 1
+    boton_j1 = pygame.Rect(
+    centro_x - boton_ancho - espacio_horizontal,  # Posición X izquierda
+    int(250 * escala_y),                          # Posición Y escalada
+    boton_ancho,
+    boton_alto
+)
+    pygame.draw.rect(ventana, azul, boton_j1, border_radius=int(10 * escala_x))
+    texto_j1 = Fuente_opcion.render("Jugador 1", True, blanco)
+    ventana.blit(texto_j1, texto_j1.get_rect(center=boton_j1.center))
+
+# Botón Jugador 2
+    boton_j2 = pygame.Rect(
+    centro_x + espacio_horizontal,                # Posición X derecha
+    int(250 * escala_y),                          # Posición Y igual que J1
+    boton_ancho,
+    boton_alto
+)
+    pygame.draw.rect(ventana, azul, boton_j2, border_radius=int(10 * escala_x))
+    texto_j2 = Fuente_opcion.render("Jugador 2", True, blanco)
+    ventana.blit(texto_j2, texto_j2.get_rect(center=boton_j2.center))
+
+# Actualizar pantalla (sin indentación)
     pygame.display.flip()
+
     jugador_num = None
     while jugador_num not in [1, 2]:
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                pos = pygame.mouse.get_pos()
-                if boton_j1.collidepoint(pos):
-                    jugador_num = 1
-                elif boton_j2.collidepoint(pos):
-                    jugador_num = 2
+     for event in pygame.event.get():
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            pos = pygame.mouse.get_pos()
+            if boton_j1.collidepoint(pos):
+                jugador_num = 1
+            elif boton_j2.collidepoint(pos):
+                jugador_num = 2
+
     jugador_actual, datos_jugador = registrar_usuario_gui(jugador_num)
+
+# Resto del código sin cambios...
     # Fase de colocación de barcos (panel de estrategia)
     barcos_completos = panel_strategy()  # Se obtienen las posiciones a través de "posiciones_barcos"
     # Enviar datos a Firebase
 
-    guardar_datos_jugador(jugador_actual, datos_jugador, posiciones_barcos)
+    guardar_datos_jugador(jugador_actual, datos_jugador, barcos_completos)
     esperar_oponente()
     if not get_turno():
         set_turno("jugador1" if jugador_num == 1 else "jugador2")
     # Fase de ataque (basada en Firebase)
+    def mostrar_error(mensaje):
+        ventana.blit(fondo2, (0,0))
+        texto = Fuente_Principal.render(mensaje, True, rojo)
+        ventana.blit(texto, (100 * escala_x, 300 * escala_y))  # Añade escalado
+        pygame.display.flip()
+        pygame.time.wait(3000)
+   
     try:
         JuegoAtaque(jugador_actual)
     except Exception as e:
@@ -901,13 +1218,6 @@ def main():
         time.sleep(2)
         JuegoAtaque(jugador_actual)
 
-def mostrar_error(mensaje):
-    ventana.blit(fondo2, (0,0))
-    texto = Fuente_Principal.render(mensaje, True, rojo)
-    ventana.blit(texto, (100, 300))
-    pygame.display.flip()
-    pygame.time.wait(3000)
 
 if __name__ == '__main__':
     main()
-
