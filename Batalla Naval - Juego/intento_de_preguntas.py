@@ -26,7 +26,7 @@ font = pygame.font.SysFont(None, 30)
 # Sistema de vidas global
 lives = 3
 
-heart_path = "main_code/heart.png"
+heart_path = "corazoncito.png"
 
 # Más adelante, cuando necesites la imagen:
 try:
