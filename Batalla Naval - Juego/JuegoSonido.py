@@ -93,9 +93,7 @@ def switch_turn(jugador_actual):
     set_turno(nuevo_turno)
 
 # -------------------------- Registro de Usuario -----------------------------
-def registrar_usuario_gui(jugador_num):
-    global ventana, fondo, fondo2, ancho, alto 
-
+def registrar_usuario_gui(jugador_num=None):
     datos = {"UserName": "", "Edad": "", "Correo": ""}
     campos = ["UserName", "Edad", "Correo"]
     campo_actual = 0
@@ -109,6 +107,7 @@ def registrar_usuario_gui(jugador_num):
         ventana.blit(fondo2, (0, 0))
         
         # Título de registro
+        titulo = "Registro Jugador" if jugador_num is None else f"Registro Jugador {jugador_num}"
         NombreTitulo(f"Registro Jugador {jugador_num}", Fuente_Principal, negro, ventana, ancho//2, 100)
 
         # Dibujar cada campo de registro
@@ -168,37 +167,80 @@ def registrar_usuario_gui(jugador_num):
                     else:
                         activo = False
                         break
-            
-            elif event.type == pygame.VIDEORESIZE:
-                ancho, alto = event.w, event.h
-                ventana = pygame.display.set_mode((ancho, alto), pygame.RESIZABLE)
+
+    if jugador_num is not None:
+        return f"jugador{jugador_num}", datos  # Modo multijugador
+    else:
+        return datos  # Modo individual
+
+# -------------------------- Class CPU -----------------------------
+class JuegoCPU:
+    def __init__(self):
+        self.barcos_cpu = []
+        self.disparos_cpu = []
+        self.generar_barcos_cpu()
+        
+    def generar_barcos_cpu(self):
+        tamaños = [4, 3, 3, 2, 2, 1]
+        self.barcos_cpu = []
+        grid = [[0]*tam_tablero for _ in range(tam_tablero)]
+    
+        for tamaño in tamaños:
+            colocado = False
+            intentos = 0
+            while not colocado and intentos < 100:
+                vertical = random.choice([True, False])
+                if vertical:
+                    fila = random.randint(0, tam_tablero - tamaño)
+                    col = random.randint(0, tam_tablero - 1)
+                else:
+                    fila = random.randint(0, tam_tablero - 1)
+                    col = random.randint(0, tam_tablero - tamaño)
                 
-                # Recalcular tamaño de celdas y posición de la grilla
-                tam_celda = min((ancho - 100) // GRID_SIZE, (alto - 200) // GRID_SIZE)
-                ORIGEN_GRID_X = (ancho - (GRID_SIZE * tam_celda)) // 2
-                ORIGEN_GRID_Y = (alto - (GRID_SIZE * tam_celda)) // 2 + 40
-                
-                # Reescalar fondos
-                fondo = pygame.transform.smoothscale(pygame.image.load("Fondo 1 - 8 bits.jpg"), (ancho, alto))
-                fondo2 = pygame.transform.smoothscale(pygame.image.load("Fondo 2 - 8 Bits.jpg"), (ancho, alto))
-       
-    return f"jugador{jugador_num}", datos
+                if self.puede_colocar(grid, fila, col, tamaño, vertical):
+                    posiciones = []
+                    for i in range(tamaño):
+                        if vertical:
+                            grid[fila + i][col] = 1
+                            posiciones.append([fila + i, col])
+                        else:
+                            grid[fila][col + i] = 1
+                            posiciones.append([fila, col + i])
+                    self.barcos_cpu.append({
+                        'posiciones': posiciones,
+                        'tamaño': tamaño,
+                        'impactos': 0,
+                        'hundido': False
+                    })
+                    colocado = True
+                intentos += 1
 
-# -------------------------- Configuración Pygame y Recursos -----------------------------
-ancho = 800
-alto = 600
+    def puede_colocar(self, grid, fila, col, tamaño, vertical):
+        if vertical:
+            if fila + tamaño > tam_tablero:
+                return False
+            for i in range(tamaño):
+                if grid[fila + i][col] == 1:
+                    return False
+        else:
+            if col + tamaño > tam_tablero:
+                return False
+            for i in range(tamaño):
+                if grid[fila][col + i] == 1:
+                    return False
+        return True
 
-# Tamaño base predeterminado
-ancho_base = 800
-alto_base = 600
-ANCHO_MAX = 1366  # Cambia según la pantalla
-ALTO_MAX = 768
+    def realizar_ataque_cpu(self, disparos_jugador):
+        while True:
+            fila = random.randint(0, tam_tablero-1)
+            col = random.randint(0, tam_tablero-1)
+            if [fila, col] not in self.disparos_cpu and [fila, col] not in disparos_jugador:
+                self.disparos_cpu.append([fila, col])
+                return fila, col
 
 
-# Variable de estado
-is_maximized = False
 
-
+#-------------------------------------Configuración Pygame, Recursos -----------------------------------------
 pygame.init()
 
 pygame.mixer.init() #Configuracion de sonidos 
@@ -219,6 +261,8 @@ sonido_impacto.set_volume(0.5)
 sonido_menu.set_volume(0.2)
 
 # Dimensiones y colores
+ancho = 800
+alto = 600
 azul = (20, 78, 180 ) 
 gris = (100, 100, 100)
 azulsuave=(0,90,250)
@@ -240,15 +284,10 @@ inicioX = (ancho - (tam_tablero * tam_celda)) // 2
 inicioY = (alto - (tam_tablero * tam_celda)) // 2 + 40
 
 # Recursos gráficos y fuentes
-global fondo, fondo2
+ventana = pygame.display.set_mode((ancho, alto))
+pygame.display.set_caption("Batalla Naval - UN")
 fondo = pygame.image.load("Fondo 1 - 8 bits.jpg")
 fondo2 = pygame.image.load("Fondo 2 - 8 Bits.jpg")
-fondo = pygame.transform.smoothscale(fondo, (ancho, alto))
-fondo2 = pygame.transform.smoothscale(fondo2, (ancho, alto))
-
-
-ventana = pygame.display.set_mode((ancho, alto), pygame.RESIZABLE)
-pygame.display.set_caption("Batalla Naval - UN")
 icono = pygame.image.load("Icono.jpg")
 pygame.display.set_icon(icono)
 fondoTablero = pygame.image.load("Fondo Tablero.jpg")
@@ -265,10 +304,6 @@ imagenes_barcos = {
     'Submarino': pygame.image.load("Submarino.jpg"),
 }
 
-# Escalar imágenes al tamaño de celda
-for nombre, img in imagenes_barcos.items():
-    imagenes_barcos[nombre] = pygame.transform.scale(img, (tam_celda, tam_celda))
-
 pygame.font.init()
 Fuente_titulo = pygame.font.Font(None, 50)
 Fuente_opcion = pygame.font.Font(None, 55)
@@ -278,7 +313,6 @@ fuente = pygame.font.SysFont(None, 24)
 
 # -------------------------- Funciones de Menú e Interfaz -----------------------------
 def NombreTitulo(textoTitulo, fuenteTitulo, color, ventana, x, y):
-    global ancho, alto
     principalTitulo = fuenteTitulo.render(textoTitulo, True, color)
     ajuste = principalTitulo.get_rect(center=(x, y))
     ventana.blit(principalTitulo, ajuste)
@@ -301,43 +335,14 @@ def atenuar_fondo(ventana, intensidad):
     # Dibujar la superficie sobre el fondo
     ventana.blit(atenuacion, (0, 0))
 
-def actualizar_escala_global():
-    global escala, tam_celda, ORIGEN_GRID_X, ORIGEN_GRID_Y
-    
-    if is_maximized:
-        escala_w = ANCHO_MAX / ancho_base
-        escala_h = ALTO_MAX / alto_base
-        escala = min(escala_w, escala_h)
-    else:
-        escala = 1.0
-    
-    # Ajustar todos los elementos
-    tam_celda = int(40 * escala)
-    ORIGEN_GRID_X = int((ancho - (GRID_SIZE * tam_celda)) // 2)
-    ORIGEN_GRID_Y = int((alto - (GRID_SIZE * tam_celda)) // 2 + int(40 * escala))
-    
-    # Reescalar fondos
-    fondo = pygame.transform.smoothscale(pygame.image.load("Fondo 1 - 8 bits.jpg"), (ancho, alto))
-    fondo2 = pygame.transform.smoothscale(pygame.image.load("Fondo 2 - 8 Bits.jpg"), (ancho, alto))
-
 def MenuPrincipal():
-    global ventana, ancho, alto, fondo, fondo2,is_maximized
-   
     while True:
-
         ventana.blit(fondo, (0, 0))
         atenuar_fondo(ventana, 50)
-
-         # Botón para maximizar
-        if not is_maximized:
-            boton_maximizar = OpcionesMenu("Maximizar", Fuente_opcion, blanco, azul, ventana, ancho//2-120, alto//2+150, 200, 50)
-        else:
-            boton_restaurar = OpcionesMenu("Restaurar", Fuente_opcion, blanco, rojo, ventana, ancho//2-120, alto//2+150, 200, 50)
-
-        atenuar_fondo(ventana, 50)
         NombreTitulo("BATALLA NAVAL", Fuente_Principal, azul, ventana, ancho//2, alto//6)
-        BotonJuego = OpcionesMenu("Jugar", Fuente_opcion, azul, blanco, ventana, ancho//2-120, alto//2-75, 250, 80)
-        BotonSalir = OpcionesMenu("Salir", Fuente_opcion, verde, blanco, ventana, ancho//2-120, alto//2+50, 250, 80)
+        BotonJuego = OpcionesMenu("Multiplayer", Fuente_opcion, azul, blanco, ventana, ancho//2-120, alto//2-75, 250, 80)
+        BotonIndividual = OpcionesMenu("Single Player", Fuente_opcion, azul, blanco, ventana, ancho//2-120, alto//2+50, 250, 80)
+        BotonSalir = OpcionesMenu("Salir", Fuente_opcion, verde, blanco, ventana, ancho//2-120, alto//2+175, 250, 80)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -345,34 +350,12 @@ def MenuPrincipal():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 posMou = pygame.mouse.get_pos()
                 if BotonJuego.collidepoint(posMou):
-                    return "jugar"
+                    return "multijugador"
+                if BotonIndividual.collidepoint(posMou):  # Nueva opción
+                    return "individual"
                 if BotonSalir.collidepoint(posMou):
                     pygame.quit()
                     sys.exit()
-                if not is_maximized and boton_maximizar.collidepoint(pos):
-                    ventana = pygame.display.set_mode((ANCHO_MAX, ALTO_MAX), pygame.FULLSCREEN)
-                    is_maximized = True
-                    actualizar_escala_global()
-                elif is_maximized and boton_restaurar.collidepoint(pos):
-                    ventana = pygame.display.set_mode((ancho_base, alto_base))
-                    is_maximized = False
-                    actualizar_escala_global()
-
-
-                elif event.type == pygame.VIDEORESIZE:
-                    ancho, alto = event.w, event.h
-                    ventana = pygame.display.set_mode((ancho, alto), pygame.RESIZABLE)
-                    
-                    # Recalcular tamaño de celdas y posición de la grilla
-                    tam_celda = min((ancho - 100) // GRID_SIZE, (alto - 200) // GRID_SIZE)
-                    ORIGEN_GRID_X = (ancho - (GRID_SIZE * tam_celda)) // 2
-                    ORIGEN_GRID_Y = (alto - (GRID_SIZE * tam_celda)) // 2 + 40
-                    
-                    # Reescalar fondos
-                    fondo = pygame.transform.smoothscale(pygame.image.load("Fondo 1 - 8 bits.jpg"), (ancho, alto))
-                    fondo2 = pygame.transform.smoothscale(pygame.image.load("Fondo 2 - 8 Bits.jpg"), (ancho, alto))
-       
-
         pygame.display.flip()
 
 # -------------------------- PANEL DE ESTRATEGIA (COLOCACIÓN DE BARCOS) -----------------------------
@@ -391,6 +374,8 @@ TAMAÑOS_BARCOS = [
     {'size': 2, 'name': 'Fragata'},
     {'size': 2, 'name': 'Submarino'},
 ] 
+
+
 barcos = []   # Lista de barcos (cada uno es un diccionario)
 grid = [[0 for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]  # 0 = libre, 1 = ocupado
 
@@ -654,42 +639,35 @@ def dibujar_grid_tablero(x, y, tam_celda, grid_size):
                         2)
 
 def dibujar_barcos_panel(superficie):
-    escala_x = ancho / ancho_base
-    escala_y = alto / alto_base
     for barco in barcos:
-        # Usar variables escaladas
-        tam_celda_actual = tam_celda
-        origen_x = ORIGEN_GRID_X
-        origen_y = ORIGEN_GRID_Y
-
-
-    for barco in barcos:
-        tam_celda_escalado = tam_celda * min(escala_x, escala_y)
         size = barco['size']
         vertical = barco['vertical']
         nombre = barco['name']
         
-        # Cargar imagen vertical original
+        # Obtener imagen original (asumiendo que es vertical)
         img_original = imagenes_barcos[nombre]
         
-        # Rotar 90° solo si está en horizontal
+        # Calcular dimensiones base según orientación
+        if vertical:
+            # Vertical: 1 columna x "size" filas
+            nuevo_ancho = tam_celda
+            nuevo_alto = tam_celda * size
+        else:
+            # Horizontal: "size" columnas x 1 fila (rotar 90°)
+            nuevo_ancho = tam_celda * size
+            nuevo_alto = tam_celda
+        
+        # Rotar y escalar manteniendo relación de aspecto
         if not vertical:
+            # Rotar 90° ANTES de escalar (para mejor calidad)
             img_rotada = pygame.transform.rotate(img_original, 90)
         else:
             img_rotada = img_original
         
-        # Calcular dimensiones según orientación
-        if vertical:
-            ancho_barco = tam_celda
-            alto_barco = tam_celda * size
-        else:
-            ancho_barco = tam_celda * size
-            alto_barco = tam_celda
+        # Escalar a las dimensiones objetivo
+        img_escalada = pygame.transform.smoothscale(img_rotada, (nuevo_ancho, nuevo_alto))
         
-        # Escalar imagen
-        img_escalada = pygame.transform.smoothscale(img_rotada, (ancho_barco, alto_barco))
-        
-        # Posicionar en la grilla
+        # Posicionar
         if barco['on_board']:
             px = ORIGEN_GRID_X + barco['board_col'] * tam_celda
             py = ORIGEN_GRID_Y + barco['board_row'] * tam_celda
@@ -857,10 +835,15 @@ def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
             impacto = False
             hundido = False
             for barco in barcos_oponente:
-                if [fila, col] in barco.get('posiciones', []):
+                if isinstance(barco, dict):  # Para Firebase
+                    posiciones = barco.get('posiciones', [])
+                    hundido = barco.get('hundido', False)
+                else:  # Para CPU
+                    posiciones = barco['posiciones']
+                    hundido = barco['hundido']
+                
+                if [fila, col] in posiciones:
                     impacto = True
-                    if barco.get('hundido', False):
-                        hundido = True
                     break
             
             if hundido:
@@ -869,6 +852,7 @@ def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
                 pygame.draw.circle(ventana, rojo, (pos_x + tam_celda//2, pos_y + tam_celda//2), 15)
             else:
                 pygame.draw.circle(ventana, COLOR_AGUA, (pos_x + tam_celda//2, pos_y + tam_celda//2), 15)
+
 
 
 def mostrar_mensaje_hundido(barcos_oponente):
@@ -890,10 +874,134 @@ def mostrar_mensaje_hundido(barcos_oponente):
         ventana.blit(texto, (ancho//2 - texto.get_width()//2, y_pos))
         y_pos += 40
 
-#------------------------------------
+
+#-----------------------------  Modo Single Player  --------------------------------------------
+
+def JuegoIndividual(posiciones_jugador, datos_jugador):
+    cpu = JuegoCPU()
+    disparos_jugador = []
+    turno_jugador = True
+    reloj = pygame.time.Clock()
+    juego_activo = True
+    mensaje = ""
+    mensaje_tiempo = 0
+
+    # Convertir posiciones del jugador
+    barcos_jugador = []
+    for nombre_barco, info in posiciones_jugador.items():
+        posiciones = []
+        for coord in info["posiciones"]:
+            fila = int(coord[1:]) - 1
+            col = ord(coord[0].upper()) - 65
+            posiciones.append([fila, col])
+        barcos_jugador.append({
+            "posiciones": posiciones,
+            "tamaño": info["size"],
+            "impactos": 0,
+            "hundido": False
+        })
+    
+    sonido_menu.fadeout(1000)
+    sonido_fondo.play(-1)
+    
+    while juego_activo:
+        ventana.blit(fondo2, (0, 0))
+        
+        # Manejar eventos
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+                
+            if event.type == pygame.MOUSEBUTTONDOWN and turno_jugador:
+                pos = pygame.mouse.get_pos()
+                celda = ClickTablero(pos, ancho//2 + 50, 180)
+                if celda:
+                    fila, col = celda
+                    if [fila, col] not in disparos_jugador:
+                        disparos_jugador.append([fila, col])
+                        impacto = False
+                        # Verificar impacto en CPU
+                        for barco in cpu.barcos_cpu:
+                            if [fila, col] in barco["posiciones"]:
+                                impacto = True
+                                barco["impactos"] += 1
+                                if barco["impactos"] >= barco["tamaño"]:
+                                    barco["hundido"] = True
+                                mensaje = "¡HAS IMPACTADO!"
+                                mensaje_tiempo = time.time()
+                                sonido_impacto.play()  # Sonido de impacto
+                                break
+                        if not impacto:
+                            mensaje = "AGUA"
+                            mensaje_tiempo = time.time()
+                            sonido_salpicadura.play()  # Sonido de salpicadura
+                        
+                        # Cambiar turno a la CPU
+                        turno_jugador = False
+        
+        # Turno de la CPU
+        if not turno_jugador:
+            time.sleep(1)  # Esperar 1 segundo antes de que la CPU realice su disparo
+            fila, col = cpu.realizar_ataque_cpu(disparos_jugador)
+            impacto_cpu = False
+            # Verificar impacto en jugador
+            for barco in barcos_jugador:
+                if [fila, col] in barco["posiciones"]:
+                    impacto_cpu = True
+                    barco["impactos"] += 1
+                    if barco["impactos"] >= barco["tamaño"]:
+                        barco["hundido"] = True
+                    mensaje = "¡TE HAN IMPACTADO!"
+                    mensaje_tiempo = time.time()
+                    sonido_impacto.play()  # Sonido de impacto
+                    break
+            if not impacto_cpu:
+                mensaje = "La CPU ha fallado"
+                mensaje_tiempo = time.time()
+                sonido_salpicadura.play()  # Sonido de salpicadura
+            
+            # Cambiar turno al jugador
+            turno_jugador = True
+        
+        # Dibujar elementos
+        dibujar_tablero_defensa(50, 180, [pos for barco in barcos_jugador for pos in barco["posiciones"]], cpu.disparos_cpu)
+        dibujar_tablero_ataque(ancho//2 + 50, 180, cpu.barcos_cpu, disparos_jugador)
+        
+        # Textos informativos
+        texto_defensa = Fuente_opcion.render("Tu Tablero", True, azul)
+        texto_ataque = Fuente_opcion.render("Tablero CPU", True, rojo)
+        ventana.blit(texto_defensa, (50 + 50, 180 - 80))
+        ventana.blit(texto_ataque, (ancho//2 + 50, 180 - 80))
+        
+        # Mensaje de impacto
+        if time.time() - mensaje_tiempo < 2:
+            texto_mensaje = Fuente_opcion.render(mensaje, True, rojo)
+            ventana.blit(texto_mensaje, (ancho//2 - texto_mensaje.get_width()//2, alto - 150))
+        
+        # Turno actual
+        texto_turno = Fuente_opcion.render("Tu turno" if turno_jugador else "Turno de la CPU", 
+                                          True, verde if turno_jugador else rojo)
+        ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
+        
+        pygame.display.flip()
+        reloj.tick(30)
+        
+        # Verificar victoria
+        jugador_gana = all(barco["hundido"] for barco in cpu.barcos_cpu)
+        cpu_gana = all(barco["hundido"] for barco in barcos_jugador)
+        
+        if jugador_gana or cpu_gana:
+            sonido_fondo.stop()
+            if jugador_gana:
+                sonido_victoria.play()
+            else:
+                sonido_derrota.play()
+            mostrar_resultado(jugador_gana)
+            juego_activo = False
+#------------------------------------------------------------------------------
 
 def JuegoAtaque(jugador_actual):
-    global ventana, ancho, alto, fondo, fondo2, tam_celda, ORIGEN_GRID_X, ORIGEN_GRID_Y    
     clock = pygame.time.Clock()
     run = True
     mensaje = ""
@@ -1040,21 +1148,8 @@ def JuegoAtaque(jugador_actual):
                         mensaje_tiempo = time.time()
                         switch_turn(jugador_actual)
                         time.sleep(0.5)
+        
 
-            if event.type == pygame.VIDEORESIZE:
-                ancho, alto = event.w, event.h
-                ventana = pygame.display.set_mode((ancho, alto), pygame.RESIZABLE)
-                
-                # Recalcular tamaño de celdas y posición de la grilla
-                tam_celda = min((ancho - 100) // GRID_SIZE, (alto - 200) // GRID_SIZE)
-                ORIGEN_GRID_X = (ancho - (GRID_SIZE * tam_celda)) // 2
-                ORIGEN_GRID_Y = (alto - (GRID_SIZE * tam_celda)) // 2 + 40
-                
-                # Reescalar fondos
-                fondo = pygame.transform.smoothscale(pygame.image.load("Fondo 1 - 8 bits.jpg"), (ancho, alto))
-                fondo2 = pygame.transform.smoothscale(pygame.image.load("Fondo 2 - 8 Bits.jpg"), (ancho, alto))
-       
-       
         #---------------------------/////////////////////----------------------------
         if game_over or sala_ref.child("game_over").get():
             sonido_fondo.stop()
@@ -1093,18 +1188,12 @@ def ClickTablero(posicionT, inicioX_tablero, inicioY_tablero):
 
 # -------------------------- FASE DEL PANEL (SHIP PLACEMENT) -----------------------------
 def panel_strategy():
-    global ventana, ancho, alto, tam_celda, ORIGEN_GRID_X, ORIGEN_GRID_Y
-
-    # Calcular tamaño de celdas
-    tam_celda = min((ancho - 100) // GRID_SIZE, (alto - 200) // GRID_SIZE)
-    ORIGEN_GRID_X = (ancho - (GRID_SIZE * tam_celda)) // 2
-    ORIGEN_GRID_Y = (alto - (GRID_SIZE * tam_celda)) // 2 + 40
-
-    # Esta función ejecuta la fase de colocación de barcos (panel de estrategia)
+    global juego_iniciado, posiciones_barcos
     reloj = pygame.time.Clock()
     inicializar_barcos()
     limpiar_grid()
-    global juego_iniciado
+    juego_iniciado = False
+
     while not juego_iniciado:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -1116,19 +1205,7 @@ def panel_strategy():
                 manejar_mousemotion_panel(event)
             elif event.type == pygame.MOUSEBUTTONUP:
                 manejar_mousebuttonup_panel(event)
-            elif event.type == pygame.VIDEORESIZE:
-                ancho, alto = event.w, event.h
-                ventana = pygame.display.set_mode((ancho, alto), pygame.RESIZABLE)
-                
-                # Recalcular tamaño de celdas y posición de la grilla
-                tam_celda = min((ancho - 100) // GRID_SIZE, (alto - 200) // GRID_SIZE)
-                ORIGEN_GRID_X = (ancho - (GRID_SIZE * tam_celda)) // 2
-                ORIGEN_GRID_Y = (alto - (GRID_SIZE * tam_celda)) // 2 + 40
-                
-                # Reescalar fondos
-                fondo = pygame.transform.smoothscale(pygame.image.load("Fondo 1 - 8 bits.jpg"), (ancho, alto))
-                fondo2 = pygame.transform.smoothscale(pygame.image.load("Fondo 2 - 8 Bits.jpg"), (ancho, alto))
-       
+
         ventana.blit(fondoEstrategia, (0, 0))
         NombreTitulo("Panel de Estrategia", Fuente_opcion, negro, ventana, ancho//2, 30)
 
@@ -1137,7 +1214,8 @@ def panel_strategy():
         dibujar_botones_panel(ventana)
         pygame.display.flip()
         reloj.tick(60)
-    return posiciones_barcos
+
+    return posiciones_barcos  # Devuelve las posiciones de los barcos
 
 # -------------------------- FLUJO PRINCIPAL -----------------------------
 def resetear_sala():
@@ -1152,59 +1230,57 @@ def resetear_sala():
     })
 
 def main():
-    global ventana, ancho, alto, fondo, fondo2,is_maximized
-    ventana = pygame.display.set_mode((ancho_base, alto_base))
-    is_maximized = False
-    actualizar_escala_global()
-    pygame.display.set_caption("Batalla Naval - UN")
-
     sonido_menu.play(-1) #repetir bucle
     modo = MenuPrincipal()
-    if modo != "jugar":
-        sonido_menu.stop() #se cierra si no se inicia el juego 
-        pygame.quit()
-        sys.exit()
 
-    resetear_sala()
+    if modo == "multijugador":
+        resetear_sala()
+        ventana.blit(fondo2, (0,0))
+        NombreTitulo("Selecciona tu jugador", Fuente_Principal, azul, ventana, ancho//2, 100)
+        boton_j1 = OpcionesMenu("Jugador 1", Fuente_opcion, blanco, azul, ventana, ancho//2 - 250, 250, 200, 50)
+        boton_j2 = OpcionesMenu("Jugador 2", Fuente_opcion, blanco, azul, ventana, ancho//2 + 50, 250, 200, 50)
+    
+        pygame.display.flip()
+        jugador_num = None
+        while jugador_num not in [1, 2]:
+            for event in pygame.event.get():
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    pos = pygame.mouse.get_pos()
+                    if boton_j1.collidepoint(pos):
+                        jugador_num = 1
+                    elif boton_j2.collidepoint(pos):
+                        jugador_num = 2
+        jugador_actual, datos_jugador = registrar_usuario_gui(jugador_num)
+        # Fase de colocación de barcos (panel de estrategia)
+        posiciones_barcos = panel_strategy()  # Se obtienen las posiciones a través de "posiciones_barcos"
+        # Enviar datos a Firebase
 
-    # Selección de jugador (en este ejemplo, se asume que el usuario es jugador1)
-    ventana.blit(fondo2, (0,0))
-    NombreTitulo("Selecciona tu jugador", Fuente_Principal, azul, ventana, ancho//2, 100)
-    boton_j1 = OpcionesMenu("Jugador 1", Fuente_opcion, blanco, azul, ventana, ancho//2 - 250, 250, 200, 50)
-    boton_j2 = OpcionesMenu("Jugador 2", Fuente_opcion, blanco, azul, ventana, ancho//2 + 50, 250, 200, 50)
-   
-    pygame.display.flip()
-    jugador_num = None
-    while jugador_num not in [1, 2]:
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                pos = pygame.mouse.get_pos()
-                if boton_j1.collidepoint(pos):
-                    jugador_num = 1
-                elif boton_j2.collidepoint(pos):
-                    jugador_num = 2
-    jugador_actual, datos_jugador = registrar_usuario_gui(jugador_num)
-    # Fase de colocación de barcos (panel de estrategia)
-    barcos_completos = panel_strategy()  # Se obtienen las posiciones a través de "posiciones_barcos"
-    # Enviar datos a Firebase
+        guardar_datos_jugador(jugador_actual, datos_jugador, posiciones_barcos)
+        esperar_oponente()
+        if not get_turno():
+            set_turno("jugador1" if jugador_num == 1 else "jugador2")
+        # Fase de ataque (basada en Firebase)
+        try:
+            JuegoAtaque(jugador_actual)
+        except Exception as e:
+            print(f"Error: {str(e)}")
+            mostrar_error("Error de conexión. Reintentando...")
+            time.sleep(2)
+            JuegoAtaque(jugador_actual)
 
-    guardar_datos_jugador(jugador_actual, datos_jugador, posiciones_barcos)
-    esperar_oponente()
-    if not get_turno():
-        set_turno("jugador1" if jugador_num == 1 else "jugador2")
-    # Fase de ataque (basada en Firebase)
-    try:
-        JuegoAtaque(jugador_actual)
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        mostrar_error("Error de conexión. Reintentando...")
-        time.sleep(2)
-        JuegoAtaque(jugador_actual)
+        finally:
+            sonido_menu.stop()
+            sonido_fondo.stop()  # Asegurar que la música se detenga al terminar el juego
+            pygame.mixer.quit()
+        
+    elif modo == "individual":
+        datos_jugador = registrar_usuario_gui()
+        posiciones_barcos = panel_strategy()
+        JuegoIndividual(posiciones_barcos, datos_jugador)
+        
 
-    finally:
-        sonido_menu.stop()
-        sonido_fondo.stop()  # Asegurar que la música se detenga al terminar el juego
-        pygame.mixer.quit()
+    sonido_menu.stop()
+    pygame.mixer.quit()
 
 
 def mostrar_error(mensaje):
