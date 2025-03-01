@@ -1,11 +1,10 @@
 import pygame
 import random
-import os
 
 # Configuración inicial
 TILE_SIZE = 60
 GRID_SIZE = 7
-MARGIN = 40  # Espacio para etiquetas
+MARGIN = 80  # Aumentamos el margen para separar bien la zona de coordenadas de la de vidas
 
 WIDTH = TILE_SIZE * GRID_SIZE + MARGIN
 HEIGHT = TILE_SIZE * GRID_SIZE + MARGIN
@@ -26,6 +25,16 @@ font = pygame.font.SysFont(None, 30)
 
 # Sistema de vidas global
 lives = 3
+
+heart_path = "main_code/heart.png"
+
+# Más adelante, cuando necesites la imagen:
+try:
+    heart_img = pygame.image.load(heart_path)
+    heart_img = pygame.transform.scale(heart_img, (30, 30))
+except Exception as e:
+    print("Error al cargar la imagen de corazón:", e)
+    heart_img = None
 
 # Definición de barcos (sin el barco de 1 celda → total 14 celdas)
 ships = [4, 3, 3, 2, 2]
@@ -72,12 +81,11 @@ ship_cells = [cell for ship in ships_positions for cell in ship]
 # ---------------------------------------------------------------------------
 # ASIGNACIÓN DE PREGUNTAS POR CELDA (14 en total)
 # ---------------------------------------------------------------------------
-# Lista de respuestas correctas para cada pregunta
 correct_answers = [
     "C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"
 ]
 
-# Crear el pool de preguntas; se agrega el campo "num" para facilitar la creación de rutas
+# Se crea el pool de preguntas; se agrega el campo "num" para identificar cada pregunta.
 all_questions = []
 for i in range(1, len(ship_cells) + 1):
     q = {
@@ -89,7 +97,7 @@ for i in range(1, len(ship_cells) + 1):
     }
     all_questions.append(q)
 
-# Asignar las preguntas a cada celda (sin barajar para mantener la correspondencia)
+# Asignar cada pregunta a la celda (sin barajar para mantener la correspondencia)
 question_data = {}
 for i, cell in enumerate(ship_cells):
     question_data[cell] = all_questions[i]
@@ -102,25 +110,41 @@ for cell in question_data:
     answered[cell] = False
 
 # ---------------------------------------------------------------------------
-# Funciones de dibujo e interacción
+# Función para dibujar las vidas (corazones) en la parte superior, de forma horizontal
+# ---------------------------------------------------------------------------
+def draw_lives():
+    if heart_img:
+        spacing = 5
+        # Dibujar en la esquina superior izquierda, con un margen fijo
+        for i in range(lives):
+            x = 10 + i * (heart_img.get_width() + spacing)
+            y = 10
+            screen.blit(heart_img, (x, y))
+    else:
+        text = font.render(f"Vidas: {lives}", True, BLACK)
+        screen.blit(text, (10, 10))
+
+# ---------------------------------------------------------------------------
+# Funciones de dibujo e interacción (se mantienen similares a las versiones anteriores)
 # ---------------------------------------------------------------------------
 def draw_grid():
     for i in range(GRID_SIZE + 1):
-        pygame.draw.line(screen, BLACK, (MARGIN + i * TILE_SIZE, MARGIN),
-                         (MARGIN + i * TILE_SIZE, MARGIN + GRID_SIZE * TILE_SIZE))
-        pygame.draw.line(screen, BLACK, (MARGIN, MARGIN + i * TILE_SIZE),
-                         (MARGIN + GRID_SIZE * TILE_SIZE, MARGIN + i * TILE_SIZE))
+        pygame.draw.line(screen, BLACK, (MARGIN, MARGIN + i * TILE_SIZE), (MARGIN + GRID_SIZE * TILE_SIZE, MARGIN + i * TILE_SIZE))
+        pygame.draw.line(screen, BLACK, (MARGIN + i * TILE_SIZE, MARGIN), (MARGIN + i * TILE_SIZE, MARGIN + GRID_SIZE * TILE_SIZE))
 
 def draw_labels():
+    # Dibujar etiquetas de columnas (A–G)
     for col in range(GRID_SIZE):
         letter = chr(ord('A') + col)
         text = font.render(letter, True, BLACK)
-        text_rect = text.get_rect(center=(MARGIN + col * TILE_SIZE + TILE_SIZE // 2, MARGIN // 2))
+        # Ajustamos la posición para no interferir con las vidas
+        text_rect = text.get_rect(center=(MARGIN + col * TILE_SIZE + TILE_SIZE // 2, MARGIN - 20))
         screen.blit(text, text_rect)
+    # Dibujar etiquetas de filas (1–7)
     for row in range(GRID_SIZE):
         number = str(row + 1)
         text = font.render(number, True, BLACK)
-        text_rect = text.get_rect(center=(MARGIN // 2, MARGIN + row * TILE_SIZE + TILE_SIZE // 2))
+        text_rect = text.get_rect(center=(MARGIN - 20, MARGIN + row * TILE_SIZE + TILE_SIZE // 2))
         screen.blit(text, text_rect)
 
 def draw_ships(ships_positions):
@@ -142,7 +166,7 @@ def show_question(image_path):
     new_height = int(img_rect.height * scale_factor)
     question_img = pygame.transform.scale(question_img, (new_width, new_height))
     image_x = (WIDTH - new_width) // 2
-    image_y = MARGIN
+    image_y = MARGIN + 10  # Para dejar un pequeño margen extra
     screen.blit(question_img, (image_x, image_y))
     
     # Dibujar botones de opciones
@@ -276,7 +300,6 @@ def show_final_image(final_image_path):
     img_rect = final_img.get_rect(center=(WIDTH // 2, HEIGHT // 2))
     screen.blit(final_img, img_rect)
     pygame.display.flip()
-    
     waiting = True
     while waiting:
         for event in pygame.event.get():
@@ -298,8 +321,6 @@ def show_life_loss_image(image_path):
     img_rect = img.get_rect(center=(WIDTH // 2, HEIGHT // 2))
     screen.blit(img, img_rect)
     pygame.display.flip()
-    
-    # Espera a que el usuario haga clic o presione una tecla para salir
     waiting = True
     while waiting:
         for event in pygame.event.get():
@@ -336,7 +357,11 @@ def show_simple_message(message):
     text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
     screen.blit(text, text_rect)
     pygame.display.flip()
-    pygame.time.wait(2000)
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type in [pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN]:
+                waiting = False
 
 def show_answer_message(answer):
     overlay = pygame.Surface((WIDTH, HEIGHT))
@@ -367,6 +392,7 @@ while running:
     draw_grid()
     draw_labels()
     draw_ships(ships_positions)
+    draw_lives()  # Dibuja los corazones representando las vidas restantes
     
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -398,14 +424,17 @@ while running:
                                             life_loss_image = f"Derrota vidas/{q_data['num']}.jpg"
                                             show_life_loss_image(life_loss_image)
                                             answered[(col, row)] = True
+                                            if lives == 0:
+                                                show_simple_message("Se ha quedado sin vidas, inicie de nuevo el juego")
+                                                running = False
                                         else:
-                                            show_simple_message("No te quedan vidas. Fin del juego.")
+                                            show_simple_message("Se ha quedado sin vidas, inicie de nuevo el juego")
                                             running = False
-                                    else:  # Usuario responde "No"
+                                    else:
                                         final_image = f"Agotando los intentos/{q_data['num']}.jpg"
                                         show_final_image(final_image)
                                         show_simple_message("Gracias por jugar! Sigue intentando")
                                         running = False
-
     pygame.display.flip()
 pygame.quit()
+
