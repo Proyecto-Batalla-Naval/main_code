@@ -4,7 +4,7 @@ from firebase_admin import credentials, db
 
 # -------------------------- Firebase -----------------------------
 # Inicializar Firebase con tu certificado y URL
-cred = credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\danim\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -27,16 +27,6 @@ def guardar_datos_jugador(jugador, datos_personales, barcos_completos):
             "hundido": False
         }
         data["barcos"].append(barco_firebase)
-    
-        data["preguntas"] = { 
-            str(coord): {"respondida": False, "intentos": 0} 
-            for coord in todas_las_coordenadas
-        }
-
-def actualizar_vidas(delta):
-    global LIVES
-    vidas_ref = sala_ref.child("vidas")
-    vidas_ref.transaction(lambda current: (current or LIVES) + delta)
     
     sala_ref.child(jugador).set(data)
 
@@ -79,7 +69,7 @@ def registrar_disparo(jugador, coordenada):
                 "impactos": nuevo_impactos,
                 "hundido": hundido
             })
-    
+
     #----------------------------//////////////////////--------------------------
 
     sonido_disparo.play()
@@ -91,30 +81,6 @@ def registrar_disparo(jugador, coordenada):
             impacto = True
             sonido_impacto.play()  # Reproducir sonido de impacto
             break
-    
-    if impacto:
-        # Guardar estado de preguntas en Firebase
-        sala_ref.child("preguntas").child(str(coordenada)).set({
-            "respondida": False,
-            "intentos": 0
-        })
-    
-    # Sincronizar vidas
-    sala_ref.child("vidas").set(LIVES)
-    
-    return impacto
-
-def sincronizar_estado_preguntas():
-    preguntas_ref = sala_ref.child("preguntas")
-    preguntas_ref.on("value", lambda snap: actualizar_estado_local(snap.val()))
-
-def actualizar_estado_local(datos_firebase):
-    global attempts, answered_cells
-    for celda_str, datos in datos_firebase.items():
-        celda = tuple(map(int, celda_str.strip("()").split(", ")))
-        attempts[celda] = datos["intentos"]
-        if datos["respondida"]:
-            answered_cells.add(celda)
 
 def set_turno(turno):
     sala_ref.child("turno").set(turno)
@@ -123,9 +89,8 @@ def get_turno():
     return sala_ref.child("turno").get()
 
 def switch_turn(jugador_actual):
-    if current_question is None:  # Solo cambiar turno si no hay pregunta activa
-        nuevo_turno = "jugador2" if jugador_actual == "jugador1" else "jugador1"
-        set_turno(nuevo_turno)
+    nuevo_turno = "jugador2" if jugador_actual == "jugador1" else "jugador1"
+    set_turno(nuevo_turno)
 
 # -------------------------- Registro de Usuario -----------------------------
 def registrar_usuario_gui(jugador_num=None):
@@ -318,12 +283,6 @@ tam_celda = 40
 inicioX = (ancho - (tam_tablero * tam_celda)) // 2
 inicioY = (alto - (tam_tablero * tam_celda)) // 2 + 40
 
-# Añadir al inicio del juego
-current_question = None
-answered_cells = set()
-attempts = defaultdict(int)
-LIVES = 3  # Definir en ámbito global o de clase
-
 # Recursos gráficos y fuentes
 ventana = pygame.display.set_mode((ancho, alto))
 pygame.display.set_caption("Batalla Naval - UN")
@@ -375,124 +334,6 @@ def atenuar_fondo(ventana, intensidad):
     
     # Dibujar la superficie sobre el fondo
     ventana.blit(atenuacion, (0, 0))
-
-LIVES = 3
-heart_img = pygame.image.load("corazoncito.png") if os.path.exists("corazoncito.png") else None
-
-# Modificar la función de dibujado de vidas
-def draw_lives(surface, x, y):
-    if heart_img:
-        for i in range(LIVES):
-            pos = (x + i*35, y)
-            surface.blit(heart_img, pos)
-    else:
-        text = Fuente_opcion.render(f"Vidas: {LIVES}", True, rojo)
-        surface.blit(text, (x, y))
-
-# -------------------------- Configuración de Preguntas -----------------------------
-def handle_question():
-    global LIVES, answered_cells
-    respuesta = show_question(current_question["pregunta"])
-    
-    if respuesta == current_question["correcta"]:
-        show_feedback("correcto.jpg")
-        answered_cells.add(current_question["celda"])
-    else:
-        LIVES -= 1
-        show_hint(current_question["pistas"][0])
-        if LIVES <= 0:
-            game_over()
-
-
-def cargar_preguntas():
-    preguntas = []
-    correct_answers = ["C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"]  # Ejemplo, aqui debes agregar las opciones correctas de esa pregunta
-    
-    for i in range(1, 15):  # Asumiendo 14 preguntas
-        preguntas.append({
-            "num": i,
-            "imagen": f"Preguntas/Pregunta{i}.jpg",
-            "correcta": correct_answers[i-1],
-            "pistas": [
-                f"Pistas/Pista{i}-1.jpg",
-                f"Pistas/Pista{i}-2.jpg"
-            ]
-        })
-    return preguntas
-
-def cargar_imagen_segura(ruta):
-    try:
-        return pygame.image.load(ruta)
-    except Exception as e:
-        print(f"Error cargando {ruta}: {str(e)}")
-        return pygame.Surface((100, 100))  # Imagen de fallback.
-
-        
-# Asignar aleatoriamente a celdas de barcos
-def asignar_preguntas_a_barcos(posiciones_barcos, preguntas):
-    celdas_barcos = [coord for barco in posiciones_barcos.values() for coord in barco["posiciones"]]
-    random.shuffle(celdas_barcos)
-    return {celda: preguntas[i] for i, celda in enumerate(celdas_barcos)}
-
-
-def manejar_pregunta(celda, question_data, answered_cells, attempts, lives):
-    pregunta = question_data[celda]
-    respuesta = mostrar_pregunta(pregunta["imagen"])
-    
-    if respuesta == pregunta["correcta"]:
-        answered_cells.add(celda)
-        mostrar_feedback("¡Correcto!", pregunta["feedback"])
-        return True, lives
-    else:
-        return manejar_intento_fallido(pregunta, celda, attempts, lives)
-
-def manejar_intento_fallido(pregunta, celda, attempts, lives):
-    intentos = attempts.get(celda, 0) + 1
-    attempts[celda] = intentos
-
-    sala_ref.child("preguntas").child(str(celda)).update({
-        "intentos": intentos,
-        "respondida": False
-    })
-
-    
-    if intentos == 1:
-        mostrar_pista(pregunta["pistas"][0])
-        return False, lives
-    elif intentos == 2:
-        mostrar_pista(pregunta["pistas"][1])
-        return False, lives
-    else:
-        if lives > 0 and confirmar_uso_vida(lives):
-            lives -= 1
-            mostrar_imagen("perdida_vida.jpg")
-            return False, lives
-        else:
-            game_over()
-            return False, lives
-
-
-
-def show_question(image_path):
-    # Cargar imagen de pregunta y mostrar opciones
-    question_img = pygame.image.load(image_path)
-    ventana.blit(question_img, (ancho//2-200, alto//2-150))
-    
-    # Dibujar botones de opciones
-    opciones = ['A', 'B', 'C', 'D']
-    for i, opc in enumerate(opciones):
-        btn = OpcionesMenu(opc, Fuente_opcion, negro, blanco, ventana, 
-                          ancho//2-100 + i*60, alto//2+100, 50, 50)
-        
-    pygame.display.flip()
-    return esperar_respuesta()
-
-def show_hint(hint_path):
-    # Mostrar imagen de pista
-    hint_img = pygame.image.load(hint_path)
-    ventana.blit(hint_img, (ancho//2-150, alto//2-100))
-    pygame.display.flip()
-    pygame.time.wait(2000)
 
 def MenuPrincipal():
     while True:
@@ -548,6 +389,17 @@ boton_inicio = pygame.Rect(500, alto - 80, 120, 40)
 juego_iniciado = False
 posiciones_barcos = {}
 
+def alphanum_to_tuple(pos_str):
+    """
+    Convierte una coordenada alfanumérica (ej. "A3") a una tupla (col, row),
+    donde "A" corresponde a 0 y el número se reduce en 1.
+    """
+    columnas = "ABCDEFG"
+    col_letter = pos_str[0].upper()
+    row = int(pos_str[1:]) - 1
+    return (columnas.index(col_letter), row)
+
+#---------------------------------------------------------------------------------
 def inicializar_barcos():
     global barcos
     barcos.clear()
@@ -735,6 +587,75 @@ def iniciar_juego():
             }
         print("Posiciones de los barcos:", posiciones_barcos)
         juego_iniciado = True
+
+def convertir_posiciones_barcos(posiciones_barcos):
+    """
+    Recibe un diccionario de posiciones de barcos en formato alfanumérico 
+    y retorna una lista de tuplas (col, row) para cada posición.
+    """
+    ship_cells_convertidos = []
+    # Recorre cada barco en el diccionario
+    for barco_key, barco_info in posiciones_barcos.items():
+        for pos_str in barco_info.get("posiciones", []):
+            pos_tuple = alphanum_to_tuple(pos_str)
+            ship_cells_convertidos.append(pos_tuple)
+    return ship_cells_convertidos
+
+# Se igualan posiciones barcos a ship cells
+ship_cells = convertir_posiciones_barcos(posiciones_barcos)
+print("Ship cells convertidos:", ship_cells)
+
+# ---------------------------------------------------------------------------
+# ASIGNACIÓN DE PREGUNTAS POR CELDA (14 en total)
+# ---------------------------------------------------------------------------
+correct_answers = [
+    "C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"
+]
+
+# Crear el pool de preguntas; cada pregunta tiene un "num" único.
+all_questions = []
+for i in range(1, len(ship_cells) + 1):
+    q = {
+        "num": i,
+        "image": f"Preguntas batalla naval/Pregunta{i}.jpg",
+        "correct": correct_answers[i-1],
+        "feedback": [f"Respuesta correcta/{i}.jpg"],
+        "first_hint": f"Pistas primer intento fallido/{i}.jpg"
+    }
+    all_questions.append(q)
+
+# Subir todas las preguntas a Firebase (sin coordenadas, ya que se asignan luego)
+def subir_preguntas_a_firebase(preguntas):
+    ref_preguntas = db.reference("Preguntas")
+    ref_preguntas.set(preguntas)
+    print("Preguntas subidas correctamente a Firebase.")
+
+subir_preguntas_a_firebase(all_questions)
+
+def obtener_preguntas():
+    ref = db.reference("Preguntas")
+    preguntas = ref.get()
+    if preguntas is None:
+        print("No hay preguntas en Firebase. ¿Subiste los datos correctamente?")
+        return {}
+    print("Preguntas obtenidas de Firebase:", preguntas)
+    return preguntas
+
+preguntas_firebase = obtener_preguntas()
+
+# Asignar preguntas a las celdas de barcos (ship_cells)
+# Se supone que el orden de ship_cells y all_questions es el mismo.
+question_data = {}
+for i, cell in enumerate(ship_cells):
+    question_data[cell] = all_questions[i]
+print("\nDiccionario de preguntas con coordenadas:", question_data)
+
+# Inicializar diccionarios para controlar intentos y celdas respondidas
+attempts_minijuego = {}
+answered_minijuego = {}
+for cell in question_data:
+    attempts_minijuego[cell] = 0
+    answered_minijuego[cell] = False
 
 def barco_en_punto(x, y):
     for barco in reversed(barcos):
@@ -1167,8 +1088,6 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
 #------------------------------------------------------------------------------
 
 def JuegoAtaque(jugador_actual):
-    global lives, question_data, answered_cells
-
     clock = pygame.time.Clock()
     run = True
     mensaje = ""
@@ -1186,12 +1105,6 @@ def JuegoAtaque(jugador_actual):
     ganador = None
     oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"  # Definir una sola vez
 
-    if not hasattr(JuegoAtaque, 'preguntas_cargadas'):
-        JuegoAtaque.question_data = asignar_preguntas_a_barcos(
-            obtener_posiciones_barcos(jugador_actual), 
-            cargar_preguntas()
-        )
-
     while run and not game_over:
 
         # Dibujar contador de disparos
@@ -1203,9 +1116,6 @@ def JuegoAtaque(jugador_actual):
         turno_actual = get_turno()
         barcos_oponente = sala_ref.child(oponente).child("barcos").get() or []
         
-        answered_cells = set()
-        attempts = defaultdict(int)
-
         try:
             # 1. Obtener datos del oponente
             estado_oponente = sala_ref.child(oponente).get() or {}
@@ -1279,8 +1189,6 @@ def JuegoAtaque(jugador_actual):
                                             True, verde if turno_actual == jugador_actual else rojo)
         ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
         
-        draw_lives(ventana, ancho - 200, 20)
-
         pygame.display.flip()
         
         for event in pygame.event.get():
@@ -1292,11 +1200,6 @@ def JuegoAtaque(jugador_actual):
                 pos = pygame.mouse.get_pos()
                 celda = ClickTablero(pos, inicioX_ataque, inicioY_tableros)
                 
-                impacto, celda = procesar_disparo(event.pos)
-                
-                if impacto and celda in JuegoAtaque.question_data and celda not in answered_cells:
-                    manejar_pregunta(celda) 
-
                 if celda:
                     fila, col = celda
                     coordenada = [fila, col]
