@@ -5,7 +5,7 @@ from firebase_admin import credentials, db
 
 # -------------------------- Firebase -----------------------------
 # Inicializar Firebase con tu certificado y URL
-cred = credentials.Certificate(r"C:\Users\MIANO\Documents\Proyectos Python\Python\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -270,7 +270,7 @@ azulsuave=(0,90,250)
 rojo = (180, 23, 20)
 blanco = (255, 255, 255)
 negro = (0, 0, 0)
-verde = (20, 144, 16 )
+verde = (4, 112, 0)
 azul_bonito = (61, 145, 197)
 azul_botones = (58, 111, 147)
 COLOR_BARCO = (75, 75, 75)
@@ -891,7 +891,7 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
     juego_activo = True
     mensaje = ""
     mensaje_tiempo = 0
-    disparos_restantes = 18  # Límite de disparos
+    disparos_restantes = 25  # Límite de disparos
 
     # Convertir posiciones del jugador
     barcos_jugador = []
@@ -914,8 +914,9 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
     while juego_activo:
         ventana.blit(fondo2, (0, 0))
 
-        texto_disparos = Fuente_opcion.render(f"Disparos: {disparos_restantes}", True, verde)
-        ventana.blit(texto_disparos, (ancho - 200, 20))
+
+        texto_disparos = Fuente_opcion.render(f"Fase de ataque          Disparos: {disparos_restantes}", True, verde)
+        ventana.blit(texto_disparos, (ancho-700, 20))
         
         # Manejar eventos
         for event in pygame.event.get():

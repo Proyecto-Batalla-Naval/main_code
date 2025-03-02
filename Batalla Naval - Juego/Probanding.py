@@ -6,7 +6,7 @@ import sys
 import requests.exceptions
 import os
 
-cred = credentials.Certificate(r"C:\Users\julia\OneDrive\Documentos\Unal 1 semestre\Programación\Batalla naval\main_code\Batalla Naval - Juego\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba (1).json")
+cred = credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/'
 })
@@ -288,12 +288,12 @@ def formulario_registro():
         pygame.display.update()
 import subprocess
 def pantalla_juego(username):
-    os.system(r'python "C:/Users/julia/OneDrive/Documentos/Unal 1 semestre/Programación/Batalla naval/main_code/Batalla Naval - Juego/JuegoSonido.py"')
+    os.system(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
     
     # Ejecuta el nuevo script
     comando = [
-        "C:/Users/julia/AppData/Local/Microsoft/WindowsApps/python.exe",
-        "C:/Users/julia/OneDrive/Documentos/Unal 1 semestre/Programación/Batalla naval/main_code/Batalla Naval - Juego/JuegoSonido.py",
+        "C:/Users/User/AppData/Local/Microsoft/WindowsApps/python.exe",
+        "C:/Users/User/Documents/Visual Studio Code - Programación/Repositorio Compartido - Batalla Naval/main_code/Batalla Naval - Juego/New version - fusion testing.py",
     ]
     subprocess.run(comando)
     # while True:
