@@ -5,7 +5,7 @@ from firebase_admin import credentials, db
 
 # -------------------------- Firebase -----------------------------
 # Inicializar Firebase con tu certificado y URL
-cred = credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\julia\OneDrive\Documentos\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba (1).json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -248,13 +248,13 @@ pygame.init()
 pygame.mixer.init() #Configuracion de sonidos 
 
 #Sonidos juego 
-sonido_disparo = pygame.mixer.Sound("Batalla Naval - Juego/Disparo.wav")  
-sonido_impacto = pygame.mixer.Sound("Batalla Naval - Juego/Impacto.wav") 
-sonido_fondo = pygame.mixer.Sound("Batalla Naval - Juego/Fondo juego.ogg")   
-sonido_victoria = pygame.mixer.Sound("Batalla Naval - Juego/Victoria.wav") 
-sonido_derrota = pygame.mixer.Sound("Batalla Naval - Juego/Derrota.wav")
-sonido_menu=pygame.mixer.Sound("Batalla Naval - Juego/Musica de Fondo DOOM.ogg")
-sonido_salpicadura=pygame.mixer.Sound("Batalla Naval - Juego/Salpicadura.wav")
+sonido_disparo = pygame.mixer.Sound("Disparo.wav")  
+sonido_impacto = pygame.mixer.Sound("Impacto.wav") 
+sonido_fondo = pygame.mixer.Sound("Fondo juego.ogg")   
+sonido_victoria = pygame.mixer.Sound("Victoria.wav") 
+sonido_derrota = pygame.mixer.Sound("Derrota.wav")
+sonido_menu=pygame.mixer.Sound("Musica de Fondo DOOM.ogg")
+sonido_salpicadura=pygame.mixer.Sound("Salpicadura.wav")
 
 # Configuracion volumen
 sonido_fondo.set_volume(0.5)
@@ -313,11 +313,11 @@ fondoEstrategia = pygame.transform.scale(fondoEstrategia, (ANCHO_VENTANA, ALTO_V
 
 # Imagen Barcos 
 imagenes_barcos = {
-    'Portaaviones': pygame.image.load("Batalla Naval - Juego/Portaaviones.jpg"),
-    'Destructor': pygame.image.load("Batalla Naval - Juego/Destructor.jpg"),
-    'Crucero': pygame.image.load("Batalla Naval - Juego/Crucero.jpg"),
-    'Fragata': pygame.image.load("Batalla Naval - Juego/Fragata.jpg"),
-    'Submarino': pygame.image.load("Batalla Naval - Juego/Submarino.jpg"),
+    'Portaaviones': pygame.image.load("Portaaviones.jpg"),
+    'Destructor': pygame.image.load("Destructor.jpg"),
+    'Crucero': pygame.image.load("Crucero.jpg"),
+    'Fragata': pygame.image.load("Fragata.jpg"),
+    'Submarino': pygame.image.load("Submarino.jpg"),
 }
 
 pygame.font.init()
