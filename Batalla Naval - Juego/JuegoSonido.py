@@ -1271,12 +1271,13 @@ def main():
 
         # jugador_actual, datos_jugador = registrar_usuario_gui(jugador_num)
         # print(jugador_actual, datos_jugador)
-        jugador_actual = "jugador2"
-        datos_jugador = {'UserName': 'jr', 'Edad': '20', 'Correo': 'jr@un.com'}
+        jugador_actual = "jugador"+str(jugador_num)
+        print("SOY EL JUGADOR ACTUAL",jugador_actual)
+        datos_jugador = {'UserName': 'Juana', 'Edad': '20', 'Correo': 'juana@unal.com'}
         # Fase de colocación de barcos (panel de estrategia)
         posiciones_barcos = panel_strategy()  # Se obtienen las posiciones a través de "posiciones_barcos"
         # Enviar datos a Firebase
-        print(jugador_actual, datos_jugador,posiciones_barcos )
+        
         guardar_datos_jugador(jugador_actual, datos_jugador, posiciones_barcos)
         esperar_oponente()
         if not get_turno():

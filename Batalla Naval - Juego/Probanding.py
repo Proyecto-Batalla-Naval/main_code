@@ -45,6 +45,7 @@ def dibujar_boton_cerrar(hover=False):
     return rect
 
 def dibujar_texto(texto, y, fuente=FUENTE_NORMAL, color=COLORES["texto"]):
+    
     texto_surface = fuente.render(texto, True, color)
     rect = texto_surface.get_rect(center=(ANCHO//2, y))
     screen.blit(texto_surface, rect)
@@ -269,6 +270,7 @@ def formulario_registro():
                             ref.child(user.uid).set({"email": campos[0], "username": campos[2], "password": campos[1]})
                             pantalla_juego(campos[2])
                         except Exception as e:
+                            
                             error_msg = manejar_errores(e)
                     else:
                         submitted = True
@@ -291,8 +293,8 @@ def pantalla_juego(username):
 
     # Ejecuta el nuevo script
     comando = [
-        "C:/Users/judir/AppData/Local/Microsoft/WindowsApps/python3.11.exe",
-        "c:/Users/judir/Downloads/pROYECTO jULI/main_code/Batalla Naval - Juego/JuegoSonido.py",
+        "C:/Users/julia/AppData/Local/Microsoft/WindowsApps/python.exe",
+        "C:/Users/julia/OneDrive/Documentos/Unal 1 semestre/Programación/Batalla naval/main_code/Batalla Naval - Juego/JuegoSonido.py",
     ]
     subprocess.run(comando)
     # while True:
