@@ -1,3 +1,4 @@
+
 import pygame, sys, random, time, re
 import firebase_admin
 from firebase_admin import credentials, db
@@ -5,7 +6,8 @@ from firebase_admin import credentials, db
 
 # -------------------------- Firebase -----------------------------
 # Inicializar Firebase con tu certificado y URL
-cred = credentials.Certificate(r"C:\Users\danim\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\julia\OneDrive\Documentos\Unal 1 semestre\Programación\Batalla naval\main_code\Batalla Naval - Juego\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba (1).json")
+
 firebase_admin.initialize_app(cred, {
     'databaseURL': "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })

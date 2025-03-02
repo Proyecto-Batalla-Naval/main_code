@@ -4,20 +4,20 @@ import pygame
 import re
 import sys
 import requests.exceptions
+import os
 
-# Configurar Firebase
-cred = credentials.Certificate(r"C:\Users\danim\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\julia\OneDrive\Documentos\Unal 1 semestre\Programación\Batalla naval\main_code\Batalla Naval - Juego\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba (1).json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/'
 })
 
 # Inicializar Pygame
 pygame.init()
-info = pygame.display.Info()
-ANCHO, ALTO = info.current_w, info.current_h
-screen = pygame.display.set_mode((ANCHO, ALTO), pygame.FULLSCREEN)
+ANCHO, ALTO = 800, 600
+screen = pygame.display.set_mode((ANCHO, ALTO))
 pygame.display.set_caption("Sistema de Juego")
 
+# Configurar Firebase
 # Configuración de diseño
 COLORES = {
     "fondo": (255, 255, 255),
@@ -288,9 +288,8 @@ def formulario_registro():
         pygame.display.update()
 import subprocess
 def pantalla_juego(username):
-    pygame.quit()  
-    # sys.exit()  
-
+    os.system(r'python "C:/Users/julia/OneDrive/Documentos/Unal 1 semestre/Programación/Batalla naval/main_code/Batalla Naval - Juego/JuegoSonido.py"')
+    
     # Ejecuta el nuevo script
     comando = [
         "C:/Users/julia/AppData/Local/Microsoft/WindowsApps/python.exe",
