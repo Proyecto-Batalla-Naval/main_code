@@ -820,20 +820,20 @@ def dibujar_tablero_defensa(x, y, barcos_propios, disparos_oponente):
 
 def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
     ventana.blit(fondoTablero, (x, y))
-    atenuar_fondo(ventana, 70) 
     dibujar_grid_tablero(x, y, tam_celda, GRID_SIZE)
     dibujar_coordenadas_tablero(x, y, tam_celda, GRID_SIZE)
     
-    # Procesar todos los disparos
     for d in disparos_jugador:
         if len(d) == 2:
             fila, col = map(int, d)
             pos_x = x + col * tam_celda
             pos_y = y + fila * tam_celda
             
-            # Verificar impacto y hundimiento
-            impacto = False
-            hundido = False
+            # Variables para determinar el tipo de impacto
+            es_agua = True
+            barco_hundido = False
+            
+            # Verificar contra todos los barcos
             for barco in barcos_oponente:
                 if isinstance(barco, dict):  # Para Firebase
                     posiciones = barco.get('posiciones', [])
@@ -842,17 +842,22 @@ def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
                     posiciones = barco['posiciones']
                     hundido = barco['hundido']
                 
+                # Si el disparo está en este barco
                 if [fila, col] in posiciones:
-                    impacto = True
-                    break
+                    es_agua = False
+                    barco_hundido = hundido
+                    break  # No necesitamos revisar otros barcos
             
-            if hundido:
+            # Dibujar según el tipo de impacto
+            if barco_hundido:
+                # Dibujar cuadrado rojo (barco ya hundido)
                 pygame.draw.rect(ventana, COLOR_HUNDIDO, (pos_x, pos_y, tam_celda, tam_celda))
-            elif impacto:
+            elif not es_agua:
+                # Dibujar círculo rojo (impacto en barco activo)
                 pygame.draw.circle(ventana, rojo, (pos_x + tam_celda//2, pos_y + tam_celda//2), 15)
             else:
+                # Dibujar círculo azul (agua)
                 pygame.draw.circle(ventana, COLOR_AGUA, (pos_x + tam_celda//2, pos_y + tam_celda//2), 15)
-
 
 
 def mostrar_mensaje_hundido(barcos_oponente):
