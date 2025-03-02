@@ -2,17 +2,18 @@ import pygame
 import random
 import firebase_admin
 from firebase_admin import credentials, db
+import os
 
-# Configuración de Firebase
+# --------------------- CONFIGURACIÓN DE FIREBASE ---------------------
 cred = credentials.Certificate(r"C:\Users\danim\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
     "databaseURL": "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
 
-# Configuración inicial
+# --------------------- CONFIGURACIÓN INICIAL ---------------------
 TILE_SIZE = 60
 GRID_SIZE = 7
-MARGIN = 80  # Separación para la zona de coordenadas y vidas
+MARGIN = 80  # Espacio para etiquetas y vidas
 
 WIDTH = TILE_SIZE * GRID_SIZE + MARGIN
 HEIGHT = TILE_SIZE * GRID_SIZE + MARGIN
@@ -24,16 +25,27 @@ pygame.display.set_caption("Batalla Naval")
 # Colores
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-BLUE = (0, 100, 255)
+HIT_COLOR = (255, 0, 0)       # Rojo para respuesta correcta
+MISS_COLOR = (128, 128, 128)  # Gris para agua
 BUTTON_COLOR = (180, 180, 250)
 BUTTON_BORDER_COLOR = BLACK
 
-# Fuente para etiquetas y textos
+# Fuente
 font = pygame.font.SysFont(None, 30)
 
-# Sistema de vidas global
+# Vidas globales
 lives = 3
 
+# Número máximo de tiros
+MAX_SHOTS = 25
+shots = 0  # Contador de tiros realizados
+
+# Tiempo máximo en segundos (5 minutos)
+max_time = 300  # 300 segundos = 5 minutos
+start_ticks = pygame.time.get_ticks()  # Tiempo de inicio en milisegundos
+total_pause_time = 0  # Tiempo total en pausa (en milisegundos)
+
+# Cargar imagen del corazón
 heart_path = "corazoncito.png"
 try:
     heart_img = pygame.image.load(heart_path)
@@ -42,7 +54,8 @@ except Exception as e:
     print("Error al cargar la imagen de corazón:", e)
     heart_img = None
 
-# Definición de barcos (sin barco de 1 celda → total 14 celdas)
+# --------------------- GENERACIÓN DE BARCOS (ubicación oculta) ---------------------
+# Definición de barcos (total de 14 celdas ocupadas)
 ships = [4, 3, 3, 2, 2]
 
 def get_neighbors(cell, grid_size):
@@ -80,14 +93,12 @@ def place_ships_randomly(grid_size, ship_sizes):
             placed = True
     return ships_positions
 
-# Generar posiciones de los barcos y obtener todas las celdas ocupadas (14 en total)
+# Generar posiciones de los barcos y obtener todas las celdas ocupadas (no se dibujarán)
 ships_positions = place_ships_randomly(GRID_SIZE, ships)
 ship_cells = [cell for ship in ships_positions for cell in ship]
-print("Ship cells usados para asignación:", ship_cells)
+print("Ship cells (ocultos) usados para asignación:", ship_cells)
 
-# ---------------------------------------------------------------------------
-# ASIGNACIÓN DE PREGUNTAS POR CELDA (14 en total)
-# ---------------------------------------------------------------------------
+# --------------------- ASIGNACIÓN DE PREGUNTAS ---------------------
 correct_answers = [
     "C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"
 ]
@@ -104,7 +115,6 @@ for i in range(1, len(ship_cells) + 1):
     }
     all_questions.append(q)
 
-# Subir todas las preguntas a Firebase (sin coordenadas, ya que se asignan luego)
 def subir_preguntas_a_firebase(preguntas):
     ref_preguntas = db.reference("Preguntas")
     ref_preguntas.set(preguntas)
@@ -123,11 +133,10 @@ def obtener_preguntas():
 
 preguntas_firebase = obtener_preguntas()
 
-# Asignar preguntas a las celdas de barcos (ship_cells)
-# Crear el pool de preguntas usando tuplas como claves
+# Asignar preguntas a las celdas de barcos (clave: tupla (col, row))
 question_data = {}
 for i, cell in enumerate(ship_cells):
-    question_data[cell] = {  # Usar la tupla (col, row) como clave
+    question_data[cell] = {
         "num": i + 1,
         "image": f"Preguntas batalla naval/Pregunta{i+1}.jpg",
         "correct": correct_answers[i],
@@ -135,15 +144,16 @@ for i, cell in enumerate(ship_cells):
         "first_hint": f"Pistas primer intento fallido/{i+1}.jpg"
     }
 
-print("\nDiccionario de preguntas con coordenadas (tuplas):", question_data)
+print("\nDiccionario de preguntas con coordenadas:", question_data)
 
-# Inicializar diccionarios con tuplas
+# --------------------- VARIABLES PARA ESTADO DE CELDAS ---------------------
+# Celdas clickeadas: guardaremos el color a dibujar (rojo o gris)
+clicked_cells = {}
+# Para celdas con pregunta, controlamos intentos y si ya se respondió correctamente
 attempts = {cell: 0 for cell in question_data}
 answered = {cell: False for cell in question_data}
 
-# ---------------------------------------------------------------------------
-# Funciones de Dibujo e Interacción
-# ---------------------------------------------------------------------------
+# --------------------- FUNCIONES DE DIBUJO E INTERACCIÓN ---------------------
 def draw_lives():
     if heart_img:
         spacing = 5
@@ -154,6 +164,35 @@ def draw_lives():
     else:
         text = font.render(f"Vidas: {lives}", True, BLACK)
         screen.blit(text, (10, 10))
+
+def draw_shots():
+    shot_text = font.render(f"Tiros: {shots}/{MAX_SHOTS}", True, BLACK)
+    screen.blit(shot_text, (10, 45))
+
+def draw_timer():
+    # Calcula el tiempo transcurrido sin contar las pausas
+    elapsed = (pygame.time.get_ticks() - start_ticks - total_pause_time) / 1000  # en segundos
+    remaining = max_time - elapsed
+    if remaining < 0:
+        remaining = 0
+    minutes = int(remaining // 60)
+    seconds = int(remaining % 60)
+    timer_text = font.render(f"Tiempo: {minutes:02d}:{seconds:02d}", True, BLACK)
+    screen.blit(timer_text, (WIDTH - timer_text.get_width() - 10, 10))
+
+def draw_stop_button():
+    # Botón "Detener" en la parte superior central (fuera del área de la cuadrícula)
+    button_width = 100
+    button_height = 30
+    x = (WIDTH - button_width) // 2
+    y = 10
+    stop_rect = pygame.Rect(x, y, button_width, button_height)
+    pygame.draw.rect(screen, BUTTON_COLOR, stop_rect, border_radius=8)
+    pygame.draw.rect(screen, BUTTON_BORDER_COLOR, stop_rect, 2, border_radius=8)
+    text = font.render("Detener", True, BLACK)
+    text_rect = text.get_rect(center=stop_rect.center)
+    screen.blit(text, text_rect)
+    return stop_rect
 
 def draw_grid():
     for i in range(GRID_SIZE + 1):
@@ -174,13 +213,12 @@ def draw_labels():
         text_rect = text.get_rect(center=(MARGIN - 20, MARGIN + row * TILE_SIZE + TILE_SIZE // 2))
         screen.blit(text, text_rect)
 
-def draw_ships(ships_positions):
-    for ship in ships_positions:
-        for (col, row) in ship:
-            rect = pygame.Rect(MARGIN + col * TILE_SIZE, MARGIN + row * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            pygame.draw.rect(screen, BLUE, rect)
+def draw_clicked_cells():
+    for (col, row), color in clicked_cells.items():
+        rect = pygame.Rect(MARGIN + col * TILE_SIZE, MARGIN + row * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+        pygame.draw.rect(screen, color, rect)
+        pygame.draw.rect(screen, BLACK, rect, 2)
 
-# Función consolidada para mostrar imágenes (usada para feedback, pistas, etc.)
 def show_image(image_path, message=None):
     screen.fill(WHITE)
     try:
@@ -207,7 +245,6 @@ def show_image(image_path, message=None):
             if event.type in [pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN]:
                 waiting = False
 
-# Funciones específicas usando show_image
 def show_feedback_images(image_paths):
     for path in image_paths:
         show_image(path)
@@ -224,92 +261,11 @@ def show_final_image(final_image_path):
 def show_life_loss_image(image_path):
     show_image(image_path)
 
-def show_question(image_path):
-    screen.fill(WHITE)
-    try:
-        question_img = pygame.image.load(image_path)
-    except Exception as e:
-        print("Error al cargar la imagen:", e)
-        return None
-
-    # Obtener el rectángulo de la imagen y definir el factor de escala
-    img_rect = question_img.get_rect()
-    scale_factor = 0.5
-    new_width = int(img_rect.width * scale_factor)
-    new_height = int(img_rect.height * scale_factor)
-
-    # Escalar la imagen
-    question_img = pygame.transform.scale(question_img, (new_width, new_height))
-    
-    # Calcular la posición de la imagen
-    image_x = (WIDTH - new_width) // 2
-    image_y = MARGIN + 10
-    screen.blit(question_img, (image_x, image_y))
-    
-    # Definir los botones de opciones
-    button_width = 50
-    button_height = 50
-    spacing = 20
-    options = ['A', 'B', 'C', 'D']
-    total_width = len(options) * button_width + (len(options) - 1) * spacing
-    start_x = (WIDTH - total_width) // 2
-
-    button_y = image_y + new_height + 30
-
-    option_buttons = {}
-    for i, option in enumerate(options):
-        rect = pygame.Rect(start_x + i * (button_width + spacing), button_y, button_width, button_height)
-        option_buttons[option] = rect
-        pygame.draw.rect(screen, BUTTON_COLOR, rect, border_radius=8)
-        pygame.draw.rect(screen, BUTTON_BORDER_COLOR, rect, 2, border_radius=8)
-        text_surface = font.render(option, True, BLACK)
-        text_rect = text_surface.get_rect(center=rect.center)
-        screen.blit(text_surface, text_rect)
-    
-    pygame.display.flip()
-    
-    # Esperar la respuesta del usuario
-    selected_option = None
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = event.pos
-                for option, rect in option_buttons.items():
-                    if rect.collidepoint(mouse_pos):
-                        selected_option = option
-                        waiting = False
-                        break
-    return selected_option
-
 def show_simple_message(message):
     screen.fill(WHITE)
     text = font.render(message, True, BLACK)
     text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
     screen.blit(text, text_rect)
-    pygame.display.flip()
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type in [pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN]:
-                waiting = False
-
-def show_answer_message(answer):
-    overlay = pygame.Surface((WIDTH, HEIGHT))
-    overlay.set_alpha(200)
-    overlay.fill((200, 200, 200))
-    screen.blit(overlay, (0, 0))
-    box_width, box_height = 300, 100
-    box_rect = pygame.Rect((WIDTH - box_width) // 2, (HEIGHT - box_height) // 2, box_width, box_height)
-    pygame.draw.rect(screen, WHITE, box_rect)
-    pygame.draw.rect(screen, BLACK, box_rect, 2)
-    message = f"Haz seleccionado la opción {answer}"
-    text_surface = font.render(message, True, BLACK)
-    text_rect = text_surface.get_rect(center=box_rect.center)
-    screen.blit(text_surface, text_rect)
     pygame.display.flip()
     waiting = True
     while waiting:
@@ -356,86 +312,204 @@ def ask_use_life_dialog(current_lives):
                     waiting = False
     return choice
 
-# ---------------------------------------------------------------------------
-# Bucle principal del juego
-# ---------------------------------------------------------------------------
+def ask_stop_confirmation():
+    # Función similar a los diálogos anteriores para confirmar si el usuario quiere detener el juego
+    global total_pause_time
+    pause_start = pygame.time.get_ticks()
+    screen.fill(WHITE)
+    message = "¿Estás seguro que deseas detener el juego?"
+    text = font.render(message, True, BLACK)
+    text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 3))
+    screen.blit(text, text_rect)
+    button_width = 80
+    button_height = 40
+    spacing = 40
+    start_x = (WIDTH - (2 * button_width + spacing)) // 2
+    button_y = HEIGHT // 2
+    yes_rect = pygame.Rect(start_x, button_y, button_width, button_height)
+    no_rect = pygame.Rect(start_x + button_width + spacing, button_y, button_width, button_height)
+    pygame.draw.rect(screen, BUTTON_COLOR, yes_rect, border_radius=8)
+    pygame.draw.rect(screen, BUTTON_COLOR, no_rect, border_radius=8)
+    pygame.draw.rect(screen, BUTTON_BORDER_COLOR, yes_rect, 2, border_radius=8)
+    pygame.draw.rect(screen, BUTTON_BORDER_COLOR, no_rect, 2, border_radius=8)
+    yes_text = font.render("Sí", True, BLACK)
+    no_text = font.render("No", True, BLACK)
+    screen.blit(yes_text, yes_text.get_rect(center=yes_rect.center))
+    screen.blit(no_text, no_text.get_rect(center=no_rect.center))
+    pygame.display.flip()
+    choice = None
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                pos = event.pos
+                if yes_rect.collidepoint(pos):
+                    choice = "Sí"
+                    waiting = False
+                elif no_rect.collidepoint(pos):
+                    choice = "No"
+                    waiting = False
+    # Si se decide retomar, actualizar total_pause_time para que el tiempo no cuente durante la pausa.
+    if choice == "No":
+        pause_end = pygame.time.get_ticks()
+        total_pause_time += (pause_end - pause_start)
+    return choice
+
+def show_question(image_path):
+    screen.fill(WHITE)
+    try:
+        question_img = pygame.image.load(image_path)
+    except Exception as e:
+        print("Error al cargar la imagen de la pregunta:", e)
+        return None
+    img_rect = question_img.get_rect()
+    scale_factor = 0.5
+    new_width = int(img_rect.width * scale_factor)
+    new_height = int(img_rect.height * scale_factor)
+    question_img = pygame.transform.scale(question_img, (new_width, new_height))
+    image_x = (WIDTH - new_width) // 2
+    image_y = MARGIN + 10
+    screen.blit(question_img, (image_x, image_y))
+    
+    # Botones de opciones
+    button_width = 50
+    button_height = 50
+    spacing = 20
+    options = ['A', 'B', 'C', 'D']
+    total_width = len(options) * button_width + (len(options) - 1) * spacing
+    start_x = (WIDTH - total_width) // 2
+    button_y = image_y + new_height + 30
+
+    option_buttons = {}
+    for i, option in enumerate(options):
+        rect = pygame.Rect(start_x + i * (button_width + spacing), button_y, button_width, button_height)
+        option_buttons[option] = rect
+        pygame.draw.rect(screen, BUTTON_COLOR, rect, border_radius=8)
+        pygame.draw.rect(screen, BUTTON_BORDER_COLOR, rect, 2, border_radius=8)
+        text_surface = font.render(option, True, BLACK)
+        text_rect = text_surface.get_rect(center=rect.center)
+        screen.blit(text_surface, text_rect)
+    
+    pygame.display.flip()
+    selected_option = None
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = event.pos
+                for option, rect in option_buttons.items():
+                    if rect.collidepoint(mouse_pos):
+                        selected_option = option
+                        waiting = False
+                        break
+    return selected_option
+
+# --------------------- BUCLE PRINCIPAL DEL JUEGO ---------------------
 running = True
 while running:
-    # Dibuja el tablero y HUD una vez por iteración
     screen.fill(WHITE)
     draw_grid()
     draw_labels()
-    draw_ships(ships_positions)
+    draw_clicked_cells()
     draw_lives()
+    draw_shots()
+    draw_timer()
+    stop_button_rect = draw_stop_button()  # Dibujar el botón "Detener"
     
-    # Procesa eventos
+    # Verificar si se agotó el tiempo
+    elapsed = (pygame.time.get_ticks() - start_ticks - total_pause_time) / 1000  # en segundos
+    if elapsed >= max_time:
+        show_simple_message("Agotaste el tiempo")
+        running = False
+        break
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
             
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            x, y = event.pos
-            if x >= MARGIN and y >= MARGIN and x < MARGIN + GRID_SIZE * TILE_SIZE and y < MARGIN + GRID_SIZE * TILE_SIZE:
-                col = (x - MARGIN) // TILE_SIZE
-                row = (y - MARGIN) // TILE_SIZE
-                clicked_cell = (col,row)
-                print("Celda clickeada:", clicked_cell)
+            mouse_pos = event.pos
+            # Si se presionó el botón "Detener"
+            if stop_button_rect.collidepoint(mouse_pos):
+                choice = ask_stop_confirmation()
+                if choice == "Sí":
+                    show_simple_message("Haz salido del juego")
+                    running = False
+                    break
+                # Si dice "No", se retoma sin hacer más cosas en este click
+                continue
 
-                in_ship = any(clicked_cell in ship for ship in ships_positions)
-                in_question = clicked_cell in question_data
-                print("¿Está en un barco?", in_ship, "¿Tiene pregunta asignada?", in_question)
+            # Verificar que el click esté dentro de la cuadrícula
+            if mouse_pos[0] >= MARGIN and mouse_pos[1] >= MARGIN and mouse_pos[0] < MARGIN + GRID_SIZE * TILE_SIZE and mouse_pos[1] < MARGIN + GRID_SIZE * TILE_SIZE:
+                col = (mouse_pos[0] - MARGIN) // TILE_SIZE
+                row = (mouse_pos[1] - MARGIN) // TILE_SIZE
+                clicked_cell = (col, row)
+                print("Celda clickeada:", clicked_cell)
                 
-                if in_ship and not answered.get(clicked_cell, False):
-                    q_data = question_data.get(clicked_cell)
-                    if q_data is None:
-                        print("¡Atención! No hay datos de pregunta para la celda:", clicked_cell)
-                    else:
-                        # Llamamos una sola vez a show_question usando (col, row)
+                # Si ya se hizo click en la celda, se ignora (no se cuenta tiro)
+                if clicked_cell in clicked_cells:
+                    continue
+
+                # Incrementar contador de tiros
+                shots += 1
+                print("Tiros:", shots)
+                if shots >= MAX_SHOTS:
+                    show_simple_message("Agotaste el número de tiros")
+                    running = False
+                    break
+                
+                # Si la celda pertenece a un barco (tiene asignada pregunta)
+                if clicked_cell in question_data:
+                    if not answered.get(clicked_cell, False):
+                        q_data = question_data[clicked_cell]
                         user_answer = show_question(q_data["image"])
-                        print("User answer:", user_answer)
+                        print("Respuesta del usuario:", user_answer)
                         if user_answer:
                             if user_answer == q_data["correct"]:
                                 show_feedback_images(q_data["feedback"])
-                                answered[(col, row)] = True
-                                print("Celda marcada como respondida:", clicked_cell)
+                                clicked_cells[clicked_cell] = HIT_COLOR
+                                answered[clicked_cell] = True
+                                print("Respuesta correcta. Celda marcada en rojo:", clicked_cell)
                             else:
-                                attempts.setdefault(clicked_cell, 0)
-                                attempts[(col, row)] += 1
-                                print("Intento en celda", (col, row), ":", attempts[(col, row)])
-                                if attempts[(col, row)] == 1:
+                                attempts[clicked_cell] += 1
+                                print("Intento", attempts[clicked_cell], "en celda", clicked_cell)
+                                if attempts[clicked_cell] == 1:
                                     show_hint(q_data["first_hint"])
-                                elif attempts[(col, row)] == 2:
+                                elif attempts[clicked_cell] == 2:
                                     show_penultimate_message()
-                                elif attempts[(col, row)] == 3:
-                                    if lives == 0:
-                                        show_simple_message("Se ha quedado sin vidas, inicie de nuevo el juego")
+                                elif attempts[clicked_cell] == 3:
+                                    if lives <= 0:
+                                        show_simple_message("Te has quedado sin vidas. Reinicia el juego.")
                                         running = False
                                         break
                                     choice = ask_use_life_dialog(lives)
                                     if choice == "Sí":
-                                        if lives > 0:
-                                            lives -= 1
-                                            life_loss_image = f"Derrota vidas/{q_data['num']}.jpg"
-                                            show_life_loss_image(life_loss_image)
-                                            answered[(col, row)] = True
-                                            print("Celda marcada como respondida:", (col, row))
-                                            if lives == 0:
-                                                show_simple_message("Se ha quedado sin vidas, inicie de nuevo el juego")
-                                                running = False
-                                                break
-                                        else:
-                                            show_simple_message("Se ha quedado sin vidas, inicie de nuevo el juego")
+                                        lives -= 1
+                                        life_loss_image = f"Derrota vidas/{q_data['num']}.jpg"
+                                        show_life_loss_image(life_loss_image)
+                                        clicked_cells[clicked_cell] = HIT_COLOR
+                                        answered[clicked_cell] = True
+                                        print("Se gastó una vida. Celda marcada en rojo:", clicked_cell)
+                                        if lives <= 0:
+                                            show_simple_message("Te has quedado sin vidas. Reinicia el juego.")
                                             running = False
                                             break
                                     else:
                                         final_image = f"Agotando los intentos/{q_data['num']}.jpg"
                                         show_final_image(final_image)
-                                        show_simple_message("Gracias por jugar! Sigue intentando")
-                                        answered[(col, row)] = True
-                                        print("Celda marcada como respondida:", (col, row))
+                                        show_simple_message("Derrota. Gracias por jugar!")
                                         running = False
                                         break
+                else:
+                    # Si la celda no pertenece a un barco (agua), se marca de gris
+                    clicked_cells[clicked_cell] = MISS_COLOR
 
-    pygame.display.flip()  # Actualizar la pantalla una vez por iteración
+    pygame.display.flip()
 
 pygame.quit()

@@ -20,9 +20,10 @@ def guardar_datos_jugador(jugador, datos_personales, barcos_completos):
     }
     
     for nombre_barco, info in barcos_completos.items():
+        # 🔴 CAMBIO: Orden corregido a [col, row]
         barco_firebase = {
             "nombre": nombre_barco,
-            "posiciones": [[int(coord[1:])-1, ord(coord[0].upper())-65] for coord in info["posiciones"]],
+            "posiciones": [[ord(coord[0].upper())-65, int(coord[1:])-1] for coord in info["posiciones"]],  # 🔴 [col, row]
             "tamaño": info["size"],
             "impactos": 0,
             "hundido": False
@@ -47,7 +48,7 @@ def obtener_barcos_oponente(jugador_actual):
     barcos = []
     for barco in data:
         if isinstance(barco, dict) and 'posiciones' in barco:
-            # Convertir cada posición a lista de enteros
+            # 🔴 CAMBIO: Mantener orden [col, row]
             barcos.extend([list(map(int, pos)) for pos in barco['posiciones']])
     return barcos
 
@@ -191,22 +192,23 @@ class JuegoCPU:
             intentos = 0
             while not colocado and intentos < 100:
                 vertical = random.choice([True, False])
+                # 🔴 CAMBIO: Variables renombradas para claridad
                 if vertical:
-                    fila = random.randint(0, tam_tablero - tamaño)
                     col = random.randint(0, tam_tablero - 1)
+                    row = random.randint(0, tam_tablero - tamaño)
                 else:
-                    fila = random.randint(0, tam_tablero - 1)
                     col = random.randint(0, tam_tablero - tamaño)
-                
-                if self.puede_colocar(grid, fila, col, tamaño, vertical):
+                    row = random.randint(0, tam_tablero - 1)
+
+                if self.puede_colocar(grid, col, row, tamaño, vertical):
                     posiciones = []
                     for i in range(tamaño):
                         if vertical:
-                            grid[fila + i][col] = 1
-                            posiciones.append([fila + i, col])
+                            grid[row + i][col] = 1
+                            posiciones.append([col, row + i])  # 🔴 Orden [col, row]
                         else:
-                            grid[fila][col + i] = 1
-                            posiciones.append([fila, col + i])
+                            grid[row][col + i] = 1
+                            posiciones.append([col + i, row])  # 🔴 Orden [col, row]
                     self.barcos_cpu.append({
                         'posiciones': posiciones,
                         'tamaño': tamaño,
@@ -216,30 +218,28 @@ class JuegoCPU:
                     colocado = True
                 intentos += 1
 
-    def puede_colocar(self, grid, fila, col, tamaño, vertical):
+    def puede_colocar(self, grid, col, row, tamaño, vertical):  # 🔴 Orden de parámetros
         if vertical:
-            if fila + tamaño > tam_tablero:
+            if row + tamaño > tam_tablero:
                 return False
             for i in range(tamaño):
-                if grid[fila + i][col] == 1:
+                if grid[row + i][col] == 1:
                     return False
         else:
             if col + tamaño > tam_tablero:
                 return False
             for i in range(tamaño):
-                if grid[fila][col + i] == 1:
+                if grid[row][col + i] == 1:
                     return False
         return True
 
     def realizar_ataque_cpu(self, disparos_jugador):
         while True:
-            fila = random.randint(0, tam_tablero-1)
-            col = random.randint(0, tam_tablero-1)
-            if [fila, col] not in self.disparos_cpu and [fila, col] not in disparos_jugador:
-                self.disparos_cpu.append([fila, col])
-                return fila, col
-
-
+            col = random.randint(0, tam_tablero-1)  # 🔴 col primero
+            row = random.randint(0, tam_tablero-1)
+            if [col, row] not in self.disparos_cpu and [col, row] not in disparos_jugador:  # 🔴 Orden
+                self.disparos_cpu.append([col, row])
+                return col, row  # 🔴 Orden (col, row)
 
 #-------------------------------------Configuración Pygame, Recursos -----------------------------------------
 pygame.init()
@@ -686,27 +686,31 @@ def resetear_barcos():
         b['dragging'] = False
     limpiar_grid()
 
-def dentro_limites(col, fila, size, vertical):
+def dentro_limites(col, row, size, vertical):
     if vertical:
-        return 0 <= fila and fila + size <= GRID_SIZE and 0 <= col < GRID_SIZE
+        return 0 <= row and row + size <= GRID_SIZE and 0 <= col < GRID_SIZE
     else:
-        return 0 <= col and col + size <= GRID_SIZE and 0 <= fila < GRID_SIZE
+        return 0 <= col and col + size <= GRID_SIZE and 0 <= row < GRID_SIZE
 
-def puede_colocar(barco, col, fila, vertical):
-    size = barco['size']
-    if not dentro_limites(col, fila, size, vertical):
-        return False
-    for i in range(size):
-        r = fila + i if vertical else fila
-        c = col if vertical else col + i
-        if grid[r][c] == 1:
-            return False
-    return True
+def puede_colocar(self, grid, col, row, tamaño, vertical):  # 🔴 Orden de parámetros
+        if vertical:
+            if row + tamaño > tam_tablero:
+                return False
+            for i in range(tamaño):
+                if grid[row + i][col] == 1:
+                    return False
+        else:
+            if col + tamaño > tam_tablero:
+                return False
+            for i in range(tamaño):
+                if grid[row][col + i] == 1:
+                    return False
+        return True
 
-def colocar_barco_en_grilla(barco, col, fila):
+def colocar_barco_en_grilla(barco, col, row):
     barco['on_board'] = True
     barco['board_col'] = col
-    barco['board_row'] = fila
+    barco['board_row'] = row
     ocupar_celdas_en_grid(barco)
 
 def quitar_barco_de_grilla(barco):
@@ -716,12 +720,12 @@ def quitar_barco_de_grilla(barco):
         barco['board_col'] = -1
         barco['board_row'] = -1
 
-def puede_colocar_estricto(barco, col, fila, vertical):
+def puede_colocar_estricto(barco, col, row, vertical):
     size = barco['size']
-    if not dentro_limites(col, fila, size, vertical):
+    if not dentro_limites(col, row, size, vertical):
         return False
     for i in range(size):
-        r = fila + i if vertical else fila
+        r = row + i if vertical else row
         c = col if vertical else col + i
         for dr in (-1, 0, 1):
             for dc in (-1, 0, 1):
@@ -758,13 +762,13 @@ def randomizar_barcos():
                 max_row = GRID_SIZE - 1
                 max_col = GRID_SIZE - barco['size']
             col = random.randint(0, max_col)
-            fila = random.randint(0, max_row)
-            if puede_colocar_estricto(barco, col, fila, orientacion):
+            row = random.randint(0, max_row)
+            if puede_colocar_estricto(barco, col, row, orientacion):
                 barco['board_col'] = col
-                barco['board_row'] = fila
-                colocar_barco_en_grilla(barco, col, fila)
+                barco['board_row'] = row
+                colocar_barco_en_grilla(barco, col, row)
                 barco['x'] = ORIGEN_GRID_X + col * tam_celda
-                barco['y'] = ORIGEN_GRID_Y + fila * tam_celda
+                barco['y'] = ORIGEN_GRID_Y + row * tam_celda
                 placed = True
         if not placed:
             reiniciar_barco_fuera(barco)
@@ -772,107 +776,26 @@ def randomizar_barcos():
 def iniciar_juego():
     global juego_iniciado, posiciones_barcos
     if all(b['on_board'] for b in barcos):
-        
         posiciones_barcos = {}
         for idx, b in enumerate(barcos):
             pos_list = []
-            col = b['board_col']  # Debe ser índice 0-based (ej: 0 para columna A)
-            row = b['board_row']  # Debe ser índice 0-based (ej: 0 para fila 1)
+            col = b['board_col']  # 🔴 col primero
+            row = b['board_row']
             size = b['size']
             
             if b['vertical']:
-                # Barco vertical: incrementa la fila (row)
                 for i in range(size):
-                    pos_list.append((col, row + i))  # Tupla (col, row)
+                    pos_list.append((col, row + i))  # 🔴 Orden correcto
             else:
-                # Barco horizontal: incrementa la columna (col)
                 for i in range(size):
-                    pos_list.append((col + i, row))  # Tupla (col, row)
+                    pos_list.append((col + i, row))  # 🔴 Orden correcto
             
             posiciones_barcos[f"barco_{idx+1}"] = {
                 "size": size,
                 "orientacion": "vertical" if b['vertical'] else "horizontal",
-                "posiciones": pos_list  # Lista de tuplas: [(0,0), (0,1), ...]
+                "posiciones": pos_list  # 🔴 Lista en formato (col, row)
             }
-        
-        print("Posiciones de los barcos:", posiciones_barcos)
         juego_iniciado = True
-    
-iniciar_juego()
-# Generar posiciones de los barcos y obtener todas las celdas ocupadas (14 en total)
-ships_positions = [barco["posiciones"] for barco in posiciones_barcos.values()]
-ship_cells = [cell for ship in ships_positions for cell in ship]
-print("Ship cells usados para asignación:", ship_cells)
-
-# ---------------------------------------------------------------------------
-# ASIGNACIÓN DE PREGUNTAS POR CELDA (14 en total)
-# ---------------------------------------------------------------------------
-correct_answers = [
-    "C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"
-]
-
-# Crear pool de preguntas y subir a Firebase
-all_questions = []
-for i in range(1, len(ship_cells) + 1):
-    q = {
-        "num": i,
-        "image": f"Preguntas batalla naval/Pregunta{i}.jpg",
-        "correct": correct_answers[i-1],
-        "feedback": [f"Respuesta correcta/{i}.jpg"],
-        "first_hint": f"Pistas primer intento fallido/{i}.jpg"
-    }
-    all_questions.append(q)
-
-def subir_preguntas_a_firebase(preguntas):
-    # Convertir lista de preguntas a diccionario con claves "x-y"
-    preguntas_firebase = {}
-    for idx, pregunta in enumerate(preguntas):
-        # Obtener la coordenada (col, row) desde ship_cells
-        if idx >= len(ship_cells):
-            print("Error: Más preguntas que celdas de barcos.")
-            break
-        col, row = ship_cells[idx]  # Ej: (0,0)
-        clave_str = f"{col}-{row}"
-        preguntas_firebase[clave_str] = pregunta
-    
-    # Subir a Firebase
-    ref_preguntas = db.reference("Preguntas")
-    ref_preguntas.set(preguntas_firebase)
-    print("¡Preguntas subidas exitosamente!")
-
-subir_preguntas_a_firebase(all_questions)
-
-# Al obtener las preguntas, convertir claves a tuplas:
-def obtener_preguntas():
-    ref = db.reference("Preguntas")
-    preguntas_firebase = ref.get() or {}
-    preguntas = {}
-    for str_key, value in preguntas_firebase.items():
-        col, row = map(int, str_key.split("-"))  # Convertir "0-0" a (0,0)
-        preguntas[(col, row)] = value
-    return preguntas
-preguntas_firebase = obtener_preguntas()
-
-# Crear el pool de preguntas usando tuplas como claves
-question_data = {}
-for i, cell in enumerate(ship_cells):
-    str_key = f"{cell[0]}-{cell[1]}"  # Convertir tupla a string
-    question_data[str_key] = {
-        "num": i + 1,
-        "image": f"Preguntas batalla naval/Pregunta{i+1}.jpg",
-        "correct": correct_answers[i],
-        "feedback": [f"Respuesta correcta/{i+1}.jpg"],
-        "first_hint": f"Pistas primer intento fallido/{i+1}.jpg"
-    }
-
-print("\nDiccionario de preguntas con coordenadas (tuplas):", question_data)
-
-# Inicializar diccionarios con tuplas
-attempts = {cell: 0 for cell in question_data}
-answered = {cell: False for cell in question_data}
-
-print("Longitud de ship_cells:", len(ship_cells))  # Debe ser 14
-print("Longitud de all_questions:", len(all_questions))  # Debe ser 14
 
 def barco_en_punto(x, y):
     for barco in reversed(barcos):
@@ -896,27 +819,21 @@ def barco_en_punto(x, y):
     return None
 
 def dibujar_grilla_panel(superficie):
-    # Dibuja la grilla de colocación (en el panel de estrategia)
-    for fila in range(GRID_SIZE):
-        for col in range(GRID_SIZE):
-            x = ORIGEN_GRID_X + col * tam_celda
-            y = ORIGEN_GRID_Y + fila * tam_celda
-            rect = pygame.Rect(x, y, tam_celda, tam_celda)
-            pygame.draw.rect(superficie, negro, rect, 1)
-    # Dibujar encabezados (A, B, C, ... y 1, 2, 3, ...)
-    columnas = ['A','B','C','D','E','F','G'][:GRID_SIZE]
+    # Dibujar encabezados (A, B, C...)
+    columnas = 'ABCDEFG'
     for col in range(GRID_SIZE):
         x = ORIGEN_GRID_X + col * tam_celda + tam_celda//2
         y = ORIGEN_GRID_Y - 20
         txt = fuente.render(columnas[col], True, rojo)
-        txt_rect = txt.get_rect(center=(x, y))
-        superficie.blit(txt, txt_rect)
-    for fila in range(GRID_SIZE):
+        superficie.blit(txt, txt.get_rect(center=(x, y)))
+
+    # Dibujar números (1, 2, 3...)
+    for row in range(GRID_SIZE):
         x = ORIGEN_GRID_X - 20
-        y = ORIGEN_GRID_Y + fila * tam_celda + tam_celda//2
-        txt = fuente.render(str(fila+1), True, rojo)
-        txt_rect = txt.get_rect(center=(x, y))
-        superficie.blit(txt, txt_rect)
+        y = ORIGEN_GRID_Y + row * tam_celda + tam_celda//2
+        txt = fuente.render(str(row+1), True, rojo)
+        superficie.blit(txt, txt.get_rect(center=(x, y)))
+
 
 def dibujar_grid_tablero(x, y, tam_celda, grid_size):
     # Líneas verticales
@@ -950,7 +867,7 @@ def dibujar_barcos_panel(superficie):
             nuevo_ancho = tam_celda
             nuevo_alto = tam_celda * size
         else:
-            # Horizontal: "size" columnas x 1 fila (rotar 90°)
+            # Horizontal: "size" columnas x 1 row (rotar 90°)
             nuevo_ancho = tam_celda * size
             nuevo_alto = tam_celda
         
@@ -1035,6 +952,78 @@ def manejar_mousebuttondown_panel(event):
                     else:
                         reiniciar_barco_fuera(b)
                 break
+# Después de llamar a iniciar_juego():
+
+# Generar ships_positions y ship_cells correctamente
+ships_positions = [barco["posiciones"] for barco in posiciones_barcos.values()]
+ship_cells = [cell for ship in ships_positions for cell in ship]
+
+# ---------------------------------------------------------------------------
+# ASIGNACIÓN DE PREGUNTAS POR CELDA (14 en total)
+# ---------------------------------------------------------------------------
+correct_answers = [
+    "C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"
+]
+
+# Crear pool de preguntas y subir a Firebase
+all_questions = []
+for i in range(1, len(ship_cells) + 1):
+    q = {
+        "num": i,
+        "image": f"Preguntas batalla naval/Pregunta{i}.jpg",
+        "correct": correct_answers[i-1],
+        "feedback": [f"Respuesta correcta/{i}.jpg"],
+        "first_hint": f"Pistas primer intento fallido/{i}.jpg"
+    }
+    all_questions.append(q)
+
+def subir_preguntas_a_firebase(preguntas):
+    preguntas_firebase = {}
+    for idx, pregunta in enumerate(preguntas):
+        if idx >= len(ship_cells):
+            print("Error: Más preguntas que celdas.")
+            break
+        col, row = ship_cells[idx]
+        clave_str = f"{col}-{row}"  # Formato "0-0"
+        preguntas_firebase[clave_str] = pregunta
+    
+    ref_preguntas = db.reference("Preguntas")
+    ref_preguntas.set(preguntas_firebase)
+    print("¡Preguntas subidas!")
+
+subir_preguntas_a_firebase(all_questions)
+
+# Al obtener las preguntas, convertir claves a tuplas:
+def obtener_preguntas():
+    ref = db.reference("Preguntas")
+    preguntas_firebase = ref.get() or {}
+    preguntas = {}
+    for str_key, value in preguntas_firebase.items():
+        col, row = map(int, str_key.split("-"))  # Convertir "0-0" a (0,0)
+        preguntas[(col, row)] = value
+    return preguntas
+preguntas_firebase = obtener_preguntas()
+
+# Crear el pool de preguntas usando tuplas como claves
+question_data = {}
+for i, cell in enumerate(ship_cells):
+    str_key = f"{cell[0]}-{cell[1]}"  # Convertir tupla a string
+    question_data[str_key] = {
+        "num": i + 1,
+        "image": f"Preguntas batalla naval/Pregunta{i+1}.jpg",
+        "correct": correct_answers[i],
+        "feedback": [f"Respuesta correcta/{i+1}.jpg"],
+        "first_hint": f"Pistas primer intento fallido/{i+1}.jpg"
+    }
+
+print("\nDiccionario de preguntas con coordenadas (tuplas):", question_data)
+
+# Inicializar diccionarios con tuplas
+attempts = {cell: 0 for cell in question_data}
+answered = {cell: False for cell in question_data}
+
+print("Longitud de ship_cells:", len(ship_cells))  # Debe ser 14
+print("Longitud de all_questions:", len(all_questions))  # Debe ser 14
 
 def manejar_mousemotion_panel(event):
     x, y = event.pos
@@ -1049,11 +1038,11 @@ def manejar_mousebuttonup_panel(event):
         for b in barcos:
             if b['dragging']:
                 b['dragging'] = False
-                col = (x - ORIGEN_GRID_X) // tam_celda
-                fila = (y - ORIGEN_GRID_Y) // tam_celda
-                if 0 <= col < GRID_SIZE and 0 <= fila < GRID_SIZE:
-                    if puede_colocar(b, col, fila, b['vertical']):
-                        colocar_barco_en_grilla(b, col, fila)
+                col = (x - ORIGEN_GRID_X) // tam_celda  # 🔴 Calcular col primero
+                row = (y - ORIGEN_GRID_Y) // tam_celda
+                if 0 <= col < GRID_SIZE and 0 <= row < GRID_SIZE:
+                    if puede_colocar(b, col, row, b['vertical']):
+                        colocar_barco_en_grilla(b, col, row)
                     else:
                         reiniciar_barco_fuera(b)
                 else:
@@ -1084,35 +1073,33 @@ def dibujar_impacto(x, y, es_impacto):
         pygame.draw.circle(ventana, COLOR_AGUA, rect.center, 15)
 
 def coord_str_to_indices(coord):
-    # Si la coordenada ya es una lista [fila, col], devolver directamente
+    # 🔴 Cambiado a (col, row)
     if isinstance(coord, list) and len(coord) == 2:
-        return coord[0], coord[1]
+        return (coord[1], coord[0])  # 🔴 Invertir si viene de Firebase como [row, col]
     
     # Si es string tipo "A1"
     columnas = "ABCDEFG"
     col_letter = coord[0].upper()
+    col = columnas.index(col_letter)  # 🔴 col primero
     row = int(coord[1:]) - 1
-    col = columnas.index(col_letter)
-    return row, col
+    return (col, row)  # 🔴 Ahora devuelve (col, row)
 
 
 def dibujar_tablero_defensa(x, y, barcos_propios, disparos_oponente):
     ventana.blit(fondoTablero, (x, y))
-    dibujar_grid_tablero(x, y, tam_celda, GRID_SIZE)  
-    dibujar_coordenadas_tablero(x, y, tam_celda, GRID_SIZE)
-    
-    # Dibujar barcos (ya vienen en formato numérico desde Firebase)
+    dibujar_grid_tablero(x, y, tam_celda, GRID_SIZE)
+    # 🔴 Dibujar barcos con (col, row)
     for coord in barcos_propios:
-        row, col = coord_str_to_indices(coord)
+        col, row = coord_str_to_indices(coord)  # 🔴 Orden corregido
         rect = pygame.Rect(x + col * tam_celda, y + row * tam_celda, tam_celda, tam_celda)
         pygame.draw.rect(ventana, COLOR_BARCO, rect.inflate(-4, -4))
     
-    # Dibujar disparos recibidos
+    # 🔴 Disparos en formato (col, row)
     for d in disparos_oponente:
         if len(d) == 2:
-            fila, col = d
+            col, row = d[0], d[1]  # 🔴 Asumir que vienen como [col, row]
             pos_x = x + col * tam_celda
-            pos_y = y + fila * tam_celda
+            pos_y = y + row * tam_celda
             pygame.draw.circle(ventana, COLOR_AGUA, (pos_x + tam_celda//2, pos_y + tam_celda//2), 15)
 
 def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
@@ -1122,9 +1109,9 @@ def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
     
     for d in disparos_jugador:
         if len(d) == 2:
-            fila, col = map(int, d)
+            row, col = map(int, d)
             pos_x = x + col * tam_celda
-            pos_y = y + fila * tam_celda
+            pos_y = y + row * tam_celda
             
             # Variables para determinar el tipo de impacto
             es_agua = True
@@ -1140,7 +1127,7 @@ def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
                     hundido = barco['hundido']
                 
                 # Si el disparo está en este barco
-                if [fila, col] in posiciones:
+                if [row, col] in posiciones:
                     es_agua = False
                     barco_hundido = hundido
                     break  # No necesitamos revisar otros barcos
@@ -1189,14 +1176,14 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
     mensaje_tiempo = 0
     disparos_restantes = 18  # Límite de disparos
 
-    # Convertir posiciones del jugador
+    # Convertir posiciones del jugador (ahora col, row)
     barcos_jugador = []
     for nombre_barco, info in posiciones_jugador.items():
         posiciones = []
         for coord in info["posiciones"]:
-            fila = int(coord[1:]) - 1
-            col = ord(coord[0].upper()) - 65
-            posiciones.append([fila, col])
+            row = ord(coord[0].upper()) - 65  # 🔴 Ahora row primero
+            col = int(coord[1:]) - 1
+            posiciones.append([row, col])  # 🔴 Almacenar como [row, col]
         barcos_jugador.append({
             "posiciones": posiciones,
             "tamaño": info["size"],
@@ -1221,38 +1208,36 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
                 
             if event.type == pygame.MOUSEBUTTONDOWN and turno_jugador:
                 pos = pygame.mouse.get_pos()
-                fila, col, tiene_pregunta = ClickTablero(pos, ancho//2 + 50, 180)
-            
-                if fila is not None and col is not None:
-                    if [fila, col] not in disparos_jugador:
-                        disparos_jugador.append([fila, col])
+                (row, col), tiene_pregunta = ClickTablero(pos, ancho//2 + 50, 180)  # Invertido
+                
+                if col is not None and row is not None:  # Invertido
+                    if [row, col] not in disparos_jugador:  # Mantenemos [row, col] porque ya invertimos
+                        disparos_jugador.append([row, col])
                         disparos_restantes -= 1
                         
-                        # Verificar si la celda tiene un barco y una pregunta
+                        # Verificar si la celda tiene una pregunta
                         if tiene_pregunta:
-                            q_data = question_data.get((col, fila))
+                            q_data = question_data.get((row, col))  # Invertido
                             if q_data:
                                 user_answer = show_question(q_data["image"])
                                 if user_answer == q_data["correct"]:
-                                    # Respuesta correcta: marcar como impactada
                                     show_feedback_images(q_data["feedback"])
-                                    answered[(col, fila)] = True
+                                    answered[(row, col)] = True  # Invertido
                                     mensaje = "¡HAS IMPACTADO!"
                                     mensaje_tiempo = time.time()
                                     sonido_impacto.play()
                                 else:
-                                    # Respuesta incorrecta: reducir vidas o mostrar pista
-                                    attempts.setdefault((col, fila), 0)
-                                    attempts[(col, fila)] += 1
-                                    if attempts[(col, fila)] == 1:
+                                    attempts.setdefault((row, col), 0)  # Invertido
+                                    attempts[(row, col)] += 1
+                                    if attempts[(row, col)] == 1:
                                         show_hint(q_data["first_hint"])
-                                    elif attempts[(col, fila)] == 2:
+                                    elif attempts[(row, col)] == 2:
                                         show_penultimate_message()
-                                    elif attempts[(col, fila)] == 3:
+                                    elif attempts[(row, col)] == 3:
                                         if lives > 0:
                                             lives -= 1
                                             show_life_loss_image(f"Derrota vidas/{q_data['num']}.jpg")
-                                            answered[(col, fila)] = True
+                                            answered[(row, col)] = True
                                         else:
                                             show_simple_message("Se ha quedado sin vidas, inicie de nuevo el juego")
                                             juego_activo = False
@@ -1262,7 +1247,6 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
                                     sonido_salpicadura.play()
                                     turno_jugador = False
                         else:
-                            # Celda sin barco: marcar como agua
                             mensaje = "AGUA"
                             mensaje_tiempo = time.time()
                             sonido_salpicadura.play()
@@ -1271,36 +1255,37 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
             if disparos_restantes <= 0:
                 sonido_fondo.stop()
                 sonido_derrota.play()
-                mostrar_resultado(False)  # Mostrar mensaje de derrota
+                mostrar_resultado(False)
                 juego_activo = False
-                pygame.time.wait(3000)  # Esperar 3 segundos antes de salir
-                break  # Salir del bucle principal
+                pygame.time.wait(3000)
+                break
 
-        # Turno de la CPU
+        # Turno de la CPU (invertido)
         if not turno_jugador:
-            time.sleep(1)  # Esperar 1 segundo antes de que la CPU realice su disparo
-            fila, col = cpu.realizar_ataque_cpu(disparos_jugador)
+            time.sleep(1)
+            col, row = cpu.realizar_ataque_cpu(disparos_jugador)  # Invertido
             impacto_cpu = False
-            # Verificar impacto en jugador
+            
+            # Verificar impacto (ahora [row, col])
             for barco in barcos_jugador:
-                if [fila, col] in barco["posiciones"]:
+                if [row, col] in barco["posiciones"]:  # Coincide con [row, col]
                     impacto_cpu = True
                     barco["impactos"] += 1
                     if barco["impactos"] >= barco["tamaño"]:
                         barco["hundido"] = True
                     mensaje = "¡TE HAN IMPACTADO!"
                     mensaje_tiempo = time.time()
-                    sonido_impacto.play()  # Sonido de impacto
+                    sonido_impacto.play()
                     break
+                    
             if not impacto_cpu:
                 mensaje = "La CPU ha fallado"
                 mensaje_tiempo = time.time()
-                sonido_salpicadura.play()  # Sonido de salpicadura
+                sonido_salpicadura.play()
             
-            # Cambiar turno al jugador
             turno_jugador = True
         
-        # Dibujar elementos
+        # Dibujar elementos (ajustado para nuevo orden)
         dibujar_tablero_defensa(50, 180, [pos for barco in barcos_jugador for pos in barco["posiciones"]], cpu.disparos_cpu)
         dibujar_tablero_ataque(ancho//2 + 50, 180, cpu.barcos_cpu, disparos_jugador)
         
@@ -1317,7 +1302,7 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
         
         # Turno actual
         texto_turno = Fuente_opcion.render("Tu turno" if turno_jugador else "Turno de la CPU", 
-                                          True, verde if turno_jugador else rojo)
+                                         True, verde if turno_jugador else rojo)
         ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
         
         pygame.display.flip()
@@ -1329,15 +1314,21 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
         
         if jugador_gana or cpu_gana:
             sonido_fondo.stop()
-            if jugador_gana:
-                sonido_victoria.play()
-                mostrar_resultado(True)  # Mostrar mensaje de victoria
-            else:
-                sonido_derrota.play()
-                mostrar_resultado(False)  # Mostrar mensaje de derrota
+            sonido_victoria.play() if jugador_gana else sonido_derrota.play()
+            mostrar_resultado(jugador_gana)
             juego_activo = False
-            pygame.time.wait(3000)  # Esperar 3 segundos antes de salir
-            break  # Salir del bucle principal
+            pygame.time.wait(3000)
+            break
+
+def ClickTablero(posicionT, inicioX_tablero, inicioY_tablero):
+    x, y = posicionT
+    if inicioX_tablero <= x < inicioX_tablero + GRID_SIZE*tam_celda and inicioY_tablero <= y < inicioY_tablero + GRID_SIZE*tam_celda:
+        col = (x - inicioX_tablero) // tam_celda  # 🔴 Calcular col primero
+        row = (y - inicioY_tablero) // tam_celda
+        clave_str = f"{col}-{row}"
+        tiene_pregunta = clave_str in question_data and not answered.get(clave_str, False)
+        return (col, row), tiene_pregunta  # 🔴 Devolver (col, row)
+    return None, None, False
 #------------------------------------------------------------------------------
 
 def JuegoAtaque(jugador_actual):
@@ -1419,7 +1410,8 @@ def JuegoAtaque(jugador_actual):
         mis_barcos = []
         for barco in mis_barcos_data:
             if isinstance(barco, dict) and 'posiciones' in barco:
-                mis_barcos.extend(barco['posiciones'])
+                mis_barcos.extend([[p[1], p[0]] for p in barco['posiciones']])  # Invertir posiciones
+
         
         # Dibujar interfaz de ataque
         titulo = Fuente_titulo.render("Fase de Ataque", True, azul)
@@ -1451,38 +1443,38 @@ def JuegoAtaque(jugador_actual):
                 return
             if event.type == pygame.MOUSEBUTTONDOWN and turno_actual == jugador_actual:
                 pos = pygame.mouse.get_pos()
-                fila, col, tiene_pregunta = ClickTablero(pos, inicioX_ataque, inicioY_tableros)
+                row, col, tiene_pregunta = ClickTablero(pos, inicioX_ataque, inicioY_tableros)
             
-                if fila is not None and col is not None:
-                    coordenada = [fila, col]
+                if row is not None and col is not None:
+                    coordenada = [row, col]
                     
                     if not any(d == coordenada for d in disparos_jugador):
                         registrar_disparo(jugador_actual, coordenada)
                         
                         # Verificar si la celda tiene un barco y una pregunta
                         if tiene_pregunta:
-                            q_data = question_data.get((col, fila))
+                            q_data = question_data.get((col, row))
                             if q_data:
                                 user_answer = show_question(q_data["image"])
                                 if user_answer == q_data["correct"]:
                                     # Respuesta correcta: marcar como impactada
                                     show_feedback_images(q_data["feedback"])
-                                    answered[(col, fila)] = True
+                                    answered[(col, row)] = True
                                     mensaje = "¡IMPACTO!"
                                     mensaje_tiempo = time.time()
                                 else:
                                     # Respuesta incorrecta: reducir vidas o mostrar pista
-                                    attempts.setdefault((col, fila), 0)
-                                    attempts[(col, fila)] += 1
-                                    if attempts[(col, fila)] == 1:
+                                    attempts.setdefault((col, row), 0)
+                                    attempts[(col, row)] += 1
+                                    if attempts[(col, row)] == 1:
                                         show_hint(q_data["first_hint"])
-                                    elif attempts[(col, fila)] == 2:
+                                    elif attempts[(col, row)] == 2:
                                         show_penultimate_message()
-                                    elif attempts[(col, fila)] == 3:
+                                    elif attempts[(col, row)] == 3:
                                         if lives > 0:
                                             lives -= 1
                                             show_life_loss_image(f"Derrota vidas/{q_data['num']}.jpg")
-                                            answered[(col, fila)] = True
+                                            answered[(col, row)] = True
                                         else:
                                             show_simple_message("Se ha quedado sin vidas, inicie de nuevo el juego")
                                             running = False
@@ -1514,27 +1506,13 @@ def JuegoAtaque(jugador_actual):
             mostrar_resultado(ganador_firebase == jugador_actual)
             run = False
             break
-
+        
 def mostrar_resultado(victoria):
     ventana.blit(fondo2, (0, 0))
     texto = Fuente_Principal.render("¡VICTORIA!" if victoria else "¡DERROTA!", True, verde if victoria else rojo)
     ventana.blit(texto, (ancho//2 - texto.get_width()//2, alto//2))
     pygame.display.flip()
     pygame.time.wait(5000)  # Mostrar por 5 segundos
-
-def ClickTablero(posicionT, inicioX_tablero, inicioY_tablero):
-    xMouse, yMouse = posicionT
-    for fila in range(tam_tablero):
-        for col in range(tam_tablero):
-            x = inicioX_tablero + col * tam_celda
-            y = inicioY_tablero + fila * tam_celda
-            rect = pygame.Rect(x, y, tam_celda, tam_celda)
-            if rect.collidepoint(xMouse, yMouse):
-                # Verificar si la celda contiene un barco
-                if (col, fila) in question_data and not answered.get((col, fila), False):
-                    return fila, col, True  # Devuelve la fila, columna y un indicador de que hay pregunta
-                return fila, col, False  # Devuelve la fila, columna y un indicador de que no hay pregunta
-    return None, None, False
 
 # -------------------------- FASE DEL PANEL (SHIP PLACEMENT) -----------------------------
 def panel_strategy():
@@ -1608,6 +1586,10 @@ def main():
             # Enviar datos a Firebase
 
             guardar_datos_jugador(jugador_actual, datos_jugador, posiciones_barcos)
+            #    🔴 Añadir estas líneas para generar ships_positions y ship_cells
+            ships_positions = [barco["posiciones"] for barco in posiciones_barcos.values()]
+            ship_cells = [cell for ship in ships_positions for cell in ship]
+            subir_preguntas_a_firebase(all_questions)  # 🔴 Asegurar que se llame después de generar ship_cells
             esperar_oponente()
             if not get_turno():
                 set_turno("jugador1" if jugador_num == 1 else "jugador2")
