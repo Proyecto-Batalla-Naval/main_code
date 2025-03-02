@@ -823,15 +823,23 @@ for i in range(1, len(ship_cells) + 1):
     }
     all_questions.append(q)
 
-# Al subir a Firebase:
 def subir_preguntas_a_firebase(preguntas):
+    # Convertir lista de preguntas a diccionario con claves "x-y"
     preguntas_firebase = {}
-    for cell, data in preguntas.items():
-        clave_str = f"{cell[0]}-{cell[1]}"  # Ej: "0-0"
-        preguntas_firebase[clave_str] = data
+    for idx, pregunta in enumerate(preguntas):
+        # Obtener la coordenada (col, row) desde ship_cells
+        if idx >= len(ship_cells):
+            print("Error: Más preguntas que celdas de barcos.")
+            break
+        col, row = ship_cells[idx]  # Ej: (0,0)
+        clave_str = f"{col}-{row}"
+        preguntas_firebase[clave_str] = pregunta
+    
+    # Subir a Firebase
     ref_preguntas = db.reference("Preguntas")
     ref_preguntas.set(preguntas_firebase)
-    
+    print("¡Preguntas subidas exitosamente!")
+
 subir_preguntas_a_firebase(all_questions)
 
 # Al obtener las preguntas, convertir claves a tuplas:
@@ -862,6 +870,9 @@ print("\nDiccionario de preguntas con coordenadas (tuplas):", question_data)
 # Inicializar diccionarios con tuplas
 attempts = {cell: 0 for cell in question_data}
 answered = {cell: False for cell in question_data}
+
+print("Longitud de ship_cells:", len(ship_cells))  # Debe ser 14
+print("Longitud de all_questions:", len(all_questions))  # Debe ser 14
 
 def barco_en_punto(x, y):
     for barco in reversed(barcos):
