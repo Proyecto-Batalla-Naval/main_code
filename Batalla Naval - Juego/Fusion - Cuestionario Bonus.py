@@ -28,6 +28,16 @@ def guardar_datos_jugador(jugador, datos_personales, barcos_completos):
         }
         data["barcos"].append(barco_firebase)
     
+        data["preguntas"] = { 
+            str(coord): {"respondida": False, "intentos": 0} 
+            for coord in todas_las_coordenadas
+        }
+
+def actualizar_vidas(delta):
+    global LIVES
+    vidas_ref = sala_ref.child("vidas")
+    vidas_ref.transaction(lambda current: (current or LIVES) + delta)
+    
     sala_ref.child(jugador).set(data)
 
 def esperar_oponente():
@@ -69,7 +79,7 @@ def registrar_disparo(jugador, coordenada):
                 "impactos": nuevo_impactos,
                 "hundido": hundido
             })
-
+    
     #----------------------------//////////////////////--------------------------
 
     sonido_disparo.play()
@@ -81,6 +91,30 @@ def registrar_disparo(jugador, coordenada):
             impacto = True
             sonido_impacto.play()  # Reproducir sonido de impacto
             break
+    
+    if impacto:
+        # Guardar estado de preguntas en Firebase
+        sala_ref.child("preguntas").child(str(coordenada)).set({
+            "respondida": False,
+            "intentos": 0
+        })
+    
+    # Sincronizar vidas
+    sala_ref.child("vidas").set(LIVES)
+    
+    return impacto
+
+def sincronizar_estado_preguntas():
+    preguntas_ref = sala_ref.child("preguntas")
+    preguntas_ref.on("value", lambda snap: actualizar_estado_local(snap.val()))
+
+def actualizar_estado_local(datos_firebase):
+    global attempts, answered_cells
+    for celda_str, datos in datos_firebase.items():
+        celda = tuple(map(int, celda_str.strip("()").split(", ")))
+        attempts[celda] = datos["intentos"]
+        if datos["respondida"]:
+            answered_cells.add(celda)
 
 def set_turno(turno):
     sala_ref.child("turno").set(turno)
@@ -89,8 +123,9 @@ def get_turno():
     return sala_ref.child("turno").get()
 
 def switch_turn(jugador_actual):
-    nuevo_turno = "jugador2" if jugador_actual == "jugador1" else "jugador1"
-    set_turno(nuevo_turno)
+    if current_question is None:  # Solo cambiar turno si no hay pregunta activa
+        nuevo_turno = "jugador2" if jugador_actual == "jugador1" else "jugador1"
+        set_turno(nuevo_turno)
 
 # -------------------------- Registro de Usuario -----------------------------
 def registrar_usuario_gui(jugador_num=None):
@@ -283,6 +318,12 @@ tam_celda = 40
 inicioX = (ancho - (tam_tablero * tam_celda)) // 2
 inicioY = (alto - (tam_tablero * tam_celda)) // 2 + 40
 
+# Añadir al inicio del juego
+current_question = None
+answered_cells = set()
+attempts = defaultdict(int)
+LIVES = 3  # Definir en ámbito global o de clase
+
 # Recursos gráficos y fuentes
 ventana = pygame.display.set_mode((ancho, alto))
 pygame.display.set_caption("Batalla Naval - UN")
@@ -349,6 +390,20 @@ def draw_lives(surface, x, y):
         surface.blit(text, (x, y))
 
 # -------------------------- Configuración de Preguntas -----------------------------
+def handle_question():
+    global LIVES, answered_cells
+    respuesta = show_question(current_question["pregunta"])
+    
+    if respuesta == current_question["correcta"]:
+        show_feedback("correcto.jpg")
+        answered_cells.add(current_question["celda"])
+    else:
+        LIVES -= 1
+        show_hint(current_question["pistas"][0])
+        if LIVES <= 0:
+            game_over()
+
+
 def cargar_preguntas():
     preguntas = []
     correct_answers = ["C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"]  # Ejemplo, aqui debes agregar las opciones correctas de esa pregunta
@@ -365,12 +420,79 @@ def cargar_preguntas():
         })
     return preguntas
 
+def cargar_imagen_segura(ruta):
+    try:
+        return pygame.image.load(ruta)
+    except Exception as e:
+        print(f"Error cargando {ruta}: {str(e)}")
+        return pygame.Surface((100, 100))  # Imagen de fallback.
+
+        
 # Asignar aleatoriamente a celdas de barcos
 def asignar_preguntas_a_barcos(posiciones_barcos, preguntas):
     celdas_barcos = [coord for barco in posiciones_barcos.values() for coord in barco["posiciones"]]
     random.shuffle(celdas_barcos)
     return {celda: preguntas[i] for i, celda in enumerate(celdas_barcos)}
 
+
+def manejar_pregunta(celda, question_data, answered_cells, attempts, lives):
+    pregunta = question_data[celda]
+    respuesta = mostrar_pregunta(pregunta["imagen"])
+    
+    if respuesta == pregunta["correcta"]:
+        answered_cells.add(celda)
+        mostrar_feedback("¡Correcto!", pregunta["feedback"])
+        return True, lives
+    else:
+        return manejar_intento_fallido(pregunta, celda, attempts, lives)
+
+def manejar_intento_fallido(pregunta, celda, attempts, lives):
+    intentos = attempts.get(celda, 0) + 1
+    attempts[celda] = intentos
+
+    sala_ref.child("preguntas").child(str(celda)).update({
+        "intentos": intentos,
+        "respondida": False
+    })
+
+    
+    if intentos == 1:
+        mostrar_pista(pregunta["pistas"][0])
+        return False, lives
+    elif intentos == 2:
+        mostrar_pista(pregunta["pistas"][1])
+        return False, lives
+    else:
+        if lives > 0 and confirmar_uso_vida(lives):
+            lives -= 1
+            mostrar_imagen("perdida_vida.jpg")
+            return False, lives
+        else:
+            game_over()
+            return False, lives
+
+
+
+def show_question(image_path):
+    # Cargar imagen de pregunta y mostrar opciones
+    question_img = pygame.image.load(image_path)
+    ventana.blit(question_img, (ancho//2-200, alto//2-150))
+    
+    # Dibujar botones de opciones
+    opciones = ['A', 'B', 'C', 'D']
+    for i, opc in enumerate(opciones):
+        btn = OpcionesMenu(opc, Fuente_opcion, negro, blanco, ventana, 
+                          ancho//2-100 + i*60, alto//2+100, 50, 50)
+        
+    pygame.display.flip()
+    return esperar_respuesta()
+
+def show_hint(hint_path):
+    # Mostrar imagen de pista
+    hint_img = pygame.image.load(hint_path)
+    ventana.blit(hint_img, (ancho//2-150, alto//2-100))
+    pygame.display.flip()
+    pygame.time.wait(2000)
 
 def MenuPrincipal():
     while True:
@@ -1045,6 +1167,8 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
 #------------------------------------------------------------------------------
 
 def JuegoAtaque(jugador_actual):
+    global lives, question_data, answered_cells
+
     clock = pygame.time.Clock()
     run = True
     mensaje = ""
@@ -1062,6 +1186,12 @@ def JuegoAtaque(jugador_actual):
     ganador = None
     oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"  # Definir una sola vez
 
+    if not hasattr(JuegoAtaque, 'preguntas_cargadas'):
+        JuegoAtaque.question_data = asignar_preguntas_a_barcos(
+            obtener_posiciones_barcos(jugador_actual), 
+            cargar_preguntas()
+        )
+
     while run and not game_over:
 
         # Dibujar contador de disparos
@@ -1073,6 +1203,9 @@ def JuegoAtaque(jugador_actual):
         turno_actual = get_turno()
         barcos_oponente = sala_ref.child(oponente).child("barcos").get() or []
         
+        answered_cells = set()
+        attempts = defaultdict(int)
+
         try:
             # 1. Obtener datos del oponente
             estado_oponente = sala_ref.child(oponente).get() or {}
@@ -1146,6 +1279,8 @@ def JuegoAtaque(jugador_actual):
                                             True, verde if turno_actual == jugador_actual else rojo)
         ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
         
+        draw_lives(ventana, ancho - 200, 20)
+
         pygame.display.flip()
         
         for event in pygame.event.get():
@@ -1157,6 +1292,11 @@ def JuegoAtaque(jugador_actual):
                 pos = pygame.mouse.get_pos()
                 celda = ClickTablero(pos, inicioX_ataque, inicioY_tableros)
                 
+                impacto, celda = procesar_disparo(event.pos)
+                
+                if impacto and celda in JuegoAtaque.question_data and celda not in answered_cells:
+                    manejar_pregunta(celda) 
+
                 if celda:
                     fila, col = celda
                     coordenada = [fila, col]
