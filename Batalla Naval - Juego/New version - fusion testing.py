@@ -5,7 +5,7 @@ from firebase_admin import credentials, db
 
 # -------------------------- Firebase -----------------------------
 # Inicializar Firebase con tu certificado y URL
-cred = credentials.Certificate(r"C:\Users\MIANO\Documents\Proyectos Python\Python\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\danim\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -365,9 +365,6 @@ def MenuPrincipal():
 
 #--------------------------- CUESTIONARIO -------------------------------------------------------------
 #------------------------------------------------------------------------------------------------------
-
-
-
 BUTTON_COLOR = (180, 180, 250)
 BUTTON_BORDER_COLOR = negro
 TILE_SIZE = 60
@@ -379,23 +376,7 @@ HEIGHT = TILE_SIZE * GRID_SIZE + MARGIN
 
 lives = 3
 
-
-ships_positions = place_ships_randomly(GRID_SIZE, ships)
-ship_cells = [cell for ship in ships_positions for cell in ship]
-print("Ship cells usados para asignación:", ship_cells)
-
-question_data = {}
-for i, cell in enumerate(ship_cells):
-    question_data[cell] = all_questions[i]
-print("\nDiccionario de preguntas con coordenadas:", question_data)
-
-# Inicializar diccionarios para controlar intentos y celdas respondidas
-attempts = {}
-answered = {}
-for cell in question_data:
-    attempts[cell] = 0
-    answered[cell] = False
-
+# Se define la ruta de una imágen
 heart_path = "corazoncito.png"
 try:
     heart_img = pygame.image.load(heart_path)
@@ -403,62 +384,6 @@ try:
 except Exception as e:
     print("Error al cargar la imagen de corazón:", e)
     heart_img = None
-
-
-def place_ships_randomly(grid_size, ship_sizes):
-    blocked = set()
-    ships_positions = []
-    for ship_size in ship_sizes:
-        placed = False
-        attempts = 0
-        while not placed and attempts < 1000:
-            attempts += 1
-            orientation = random.choice(['H', 'V'])
-            if orientation == 'H':
-                row = random.randint(0, grid_size - 1)
-                col = random.randint(0, grid_size - ship_size)
-                ship_coords = [(col + i, row) for i in range(ship_size)]
-            else:
-                row = random.randint(0, grid_size - ship_size)
-                col = random.randint(0, grid_size - 1)
-                ship_coords = [(col, row + i) for i in range(ship_size)]
-            if any(coord in blocked for coord in ship_coords):
-                continue
-            for coord in ship_coords:
-                for neighbor in get_neighbors(coord, grid_size):
-                    blocked.add(neighbor)
-            ships_positions.append(ship_coords)
-            placed = True
-    return ships_positions
-
-def get_neighbors(cell, grid_size):
-    (col, row) = cell
-    neighbors = []
-    for dx in [-1, 0, 1]:
-        for dy in [-1, 0, 1]:
-            new_col = col + dx
-            new_row = row + dy
-            if 0 <= new_col < grid_size and 0 <= new_row < grid_size:
-                neighbors.append((new_col, new_row))
-    return neighbors
-
-# Definir las preguntas y respuestas correctas
-correct_answers = [
-    "C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"
-]
-
-# Crear el pool de preguntas; cada pregunta tiene un "num" único.
-all_questions = []
-for i in range(1, len(ship_cells) + 1):
-    q = {
-        "num": i,
-        "image": f"Preguntas batalla naval/Pregunta{i}.jpg",
-        "correct": correct_answers[i-1],
-        "feedback": [f"Respuesta correcta/{i}.jpg"],
-        "first_hint": f"Pistas primer intento fallido/{i}.jpg"
-    }
-    all_questions.append(q)
-
 
 def draw_lives():
     if heart_img:
@@ -646,42 +571,6 @@ def ask_use_life_dialog(current_lives):
                     choice = "No"
                     waiting = False
     return choice
-
-def place_ships_randomly(grid_size, ship_sizes):
-    blocked = set()
-    ships_positions = []
-    for ship_size in ship_sizes:
-        placed = False
-        while not placed:
-            orientation = random.choice(['H', 'V'])
-            if orientation == 'H':
-                row = random.randint(0, grid_size - 1)
-                col = random.randint(0, grid_size - ship_size)
-                ship_coords = [(col + i, row) for i in range(ship_size)]
-            else:
-                row = random.randint(0, grid_size - ship_size)
-                col = random.randint(0, grid_size - 1)
-                ship_coords = [(col, row + i) for i in range(ship_size)]
-            if any(coord in blocked for coord in ship_coords):
-                continue
-            for coord in ship_coords:
-                for neighbor in get_neighbors(coord, grid_size):
-                    blocked.add(neighbor)
-            ships_positions.append(ship_coords)
-            placed = True
-    return ships_positions
-
-def get_neighbors(cell, grid_size):
-    (col, row) = cell
-    neighbors = []
-    for dx in [-1, 0, 1]:
-        for dy in [-1, 0, 1]:
-            new_col = col + dx
-            new_row = row + dy
-            if 0 <= new_col < grid_size and 0 <= new_row < grid_size:
-                neighbors.append((new_col, new_row))
-    return neighbors
-
 #------------------------------------------------------------------------------------------------------
 #------------------------------------------------------------------------------------------------------
 
@@ -883,26 +772,96 @@ def randomizar_barcos():
 def iniciar_juego():
     global juego_iniciado, posiciones_barcos
     if all(b['on_board'] for b in barcos):
+        
         posiciones_barcos = {}
-        columnas = ['A','B','C','D','E','F','G']
         for idx, b in enumerate(barcos):
             pos_list = []
-            col = b['board_col']
-            row = b['board_row']
+            col = b['board_col']  # Debe ser índice 0-based (ej: 0 para columna A)
+            row = b['board_row']  # Debe ser índice 0-based (ej: 0 para fila 1)
             size = b['size']
+            
             if b['vertical']:
+                # Barco vertical: incrementa la fila (row)
                 for i in range(size):
-                    pos_list.append(f"{columnas[col]}{row+i+1}")
+                    pos_list.append((col, row + i))  # Tupla (col, row)
             else:
+                # Barco horizontal: incrementa la columna (col)
                 for i in range(size):
-                    pos_list.append(f"{columnas[col+i]}{row+1}")
+                    pos_list.append((col + i, row))  # Tupla (col, row)
+            
             posiciones_barcos[f"barco_{idx+1}"] = {
                 "size": size,
                 "orientacion": "vertical" if b['vertical'] else "horizontal",
-                "posiciones": pos_list
+                "posiciones": pos_list  # Lista de tuplas: [(0,0), (0,1), ...]
             }
+        
         print("Posiciones de los barcos:", posiciones_barcos)
         juego_iniciado = True
+    
+iniciar_juego()
+# Generar posiciones de los barcos y obtener todas las celdas ocupadas (14 en total)
+ships_positions = [barco["posiciones"] for barco in posiciones_barcos.values()]
+ship_cells = [cell for ship in ships_positions for cell in ship]
+print("Ship cells usados para asignación:", ship_cells)
+
+# ---------------------------------------------------------------------------
+# ASIGNACIÓN DE PREGUNTAS POR CELDA (14 en total)
+# ---------------------------------------------------------------------------
+correct_answers = [
+    "C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"
+]
+
+# Crear pool de preguntas y subir a Firebase
+all_questions = []
+for i in range(1, len(ship_cells) + 1):
+    q = {
+        "num": i,
+        "image": f"Preguntas batalla naval/Pregunta{i}.jpg",
+        "correct": correct_answers[i-1],
+        "feedback": [f"Respuesta correcta/{i}.jpg"],
+        "first_hint": f"Pistas primer intento fallido/{i}.jpg"
+    }
+    all_questions.append(q)
+
+# Al subir a Firebase:
+def subir_preguntas_a_firebase(preguntas):
+    preguntas_firebase = {}
+    for cell, data in preguntas.items():
+        clave_str = f"{cell[0]}-{cell[1]}"  # Ej: "0-0"
+        preguntas_firebase[clave_str] = data
+    ref_preguntas = db.reference("Preguntas")
+    ref_preguntas.set(preguntas_firebase)
+    
+subir_preguntas_a_firebase(all_questions)
+
+# Al obtener las preguntas, convertir claves a tuplas:
+def obtener_preguntas():
+    ref = db.reference("Preguntas")
+    preguntas_firebase = ref.get() or {}
+    preguntas = {}
+    for str_key, value in preguntas_firebase.items():
+        col, row = map(int, str_key.split("-"))  # Convertir "0-0" a (0,0)
+        preguntas[(col, row)] = value
+    return preguntas
+preguntas_firebase = obtener_preguntas()
+
+# Crear el pool de preguntas usando tuplas como claves
+question_data = {}
+for i, cell in enumerate(ship_cells):
+    str_key = f"{cell[0]}-{cell[1]}"  # Convertir tupla a string
+    question_data[str_key] = {
+        "num": i + 1,
+        "image": f"Preguntas batalla naval/Pregunta{i+1}.jpg",
+        "correct": correct_answers[i],
+        "feedback": [f"Respuesta correcta/{i+1}.jpg"],
+        "first_hint": f"Pistas primer intento fallido/{i+1}.jpg"
+    }
+
+print("\nDiccionario de preguntas con coordenadas (tuplas):", question_data)
+
+# Inicializar diccionarios con tuplas
+attempts = {cell: 0 for cell in question_data}
+answered = {cell: False for cell in question_data}
 
 def barco_en_punto(x, y):
     for barco in reversed(barcos):
@@ -1680,4 +1639,3 @@ def mostrar_error(mensaje):
 
 if __name__ == '__main__':
     main()
-
