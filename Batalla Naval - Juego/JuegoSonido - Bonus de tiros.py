@@ -2,9 +2,10 @@ import pygame, sys, random, time, re
 import firebase_admin
 from firebase_admin import credentials, db
 
+
 # -------------------------- Firebase -----------------------------
 # Inicializar Firebase con tu certificado y URL
-cred = credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\MIANO\Documents\Proyectos Python\Python\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -890,6 +891,7 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
     juego_activo = True
     mensaje = ""
     mensaje_tiempo = 0
+    disparos_restantes = 18  # Límite de disparos
 
     # Convertir posiciones del jugador
     barcos_jugador = []
@@ -911,6 +913,9 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
     
     while juego_activo:
         ventana.blit(fondo2, (0, 0))
+
+        texto_disparos = Fuente_opcion.render(f"Disparos: {disparos_restantes}", True, verde)
+        ventana.blit(texto_disparos, (ancho - 200, 20))
         
         # Manejar eventos
         for event in pygame.event.get():
@@ -925,6 +930,7 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
                     fila, col = celda
                     if [fila, col] not in disparos_jugador:
                         disparos_jugador.append([fila, col])
+                        disparos_restantes -= 1 
                         impacto = False
                         # Verificar impacto en CPU
                         for barco in cpu.barcos_cpu:
@@ -945,7 +951,18 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
                         
                         # Cambiar turno a la CPU
                         turno_jugador = False
-        
+
+                    else:
+                        turno_jugador=True
+
+            if disparos_restantes <= 0:
+                sonido_fondo.stop()
+                sonido_derrota.play()
+                mostrar_resultado(False)  # Mostrar mensaje de derrota
+                juego_activo = False
+                pygame.time.wait(3000)  # Esperar 3 segundos antes de salir
+                break  # Salir del bucle principal
+
         # Turno de la CPU
         if not turno_jugador:
             time.sleep(1)  # Esperar 1 segundo antes de que la CPU realice su disparo
@@ -1001,10 +1018,13 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
             sonido_fondo.stop()
             if jugador_gana:
                 sonido_victoria.play()
+                mostrar_resultado(True)  # Mostrar mensaje de victoria
             else:
                 sonido_derrota.play()
-            mostrar_resultado(jugador_gana)
+                mostrar_resultado(False)  # Mostrar mensaje de derrota
             juego_activo = False
+            pygame.time.wait(3000)  # Esperar 3 segundos antes de salir
+            break  # Salir del bucle principal
 #------------------------------------------------------------------------------
 
 def JuegoAtaque(jugador_actual):
