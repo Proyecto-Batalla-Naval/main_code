@@ -601,62 +601,6 @@ def convertir_posiciones_barcos(posiciones_barcos):
             ship_cells_convertidos.append(pos_tuple)
     return ship_cells_convertidos
 
-# Se igualan posiciones barcos a ship cells
-ship_cells = convertir_posiciones_barcos(posiciones_barcos)
-print("Ship cells convertidos:", ship_cells)
-
-# ---------------------------------------------------------------------------
-# ASIGNACIÓN DE PREGUNTAS POR CELDA (14 en total)
-# ---------------------------------------------------------------------------
-correct_answers = [
-    "C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"
-]
-
-# Crear el pool de preguntas; cada pregunta tiene un "num" único.
-all_questions = []
-for i in range(1, len(ship_cells) + 1):
-    q = {
-        "num": i,
-        "image": f"Preguntas batalla naval/Pregunta{i}.jpg",
-        "correct": correct_answers[i-1],
-        "feedback": [f"Respuesta correcta/{i}.jpg"],
-        "first_hint": f"Pistas primer intento fallido/{i}.jpg"
-    }
-    all_questions.append(q)
-
-# Subir todas las preguntas a Firebase (sin coordenadas, ya que se asignan luego)
-def subir_preguntas_a_firebase(preguntas):
-    ref_preguntas = db.reference("Preguntas")
-    ref_preguntas.set(preguntas)
-    print("Preguntas subidas correctamente a Firebase.")
-
-subir_preguntas_a_firebase(all_questions)
-
-def obtener_preguntas():
-    ref = db.reference("Preguntas")
-    preguntas = ref.get()
-    if preguntas is None:
-        print("No hay preguntas en Firebase. ¿Subiste los datos correctamente?")
-        return {}
-    print("Preguntas obtenidas de Firebase:", preguntas)
-    return preguntas
-
-preguntas_firebase = obtener_preguntas()
-
-# Asignar preguntas a las celdas de barcos (ship_cells)
-# Se supone que el orden de ship_cells y all_questions es el mismo.
-question_data = {}
-for i, cell in enumerate(ship_cells):
-    question_data[cell] = all_questions[i]
-print("\nDiccionario de preguntas con coordenadas:", question_data)
-
-# Inicializar diccionarios para controlar intentos y celdas respondidas
-attempts_minijuego = {}
-answered_minijuego = {}
-for cell in question_data:
-    attempts_minijuego[cell] = 0
-    answered_minijuego[cell] = False
-
 def barco_en_punto(x, y):
     for barco in reversed(barcos):
         size = barco['size']
@@ -841,6 +785,62 @@ def manejar_mousebuttonup_panel(event):
                         reiniciar_barco_fuera(b)
                 else:
                     reiniciar_barco_fuera(b)
+
+# Se igualan posiciones barcos a ship cells
+ship_cells = convertir_posiciones_barcos(posiciones_barcos)
+print("Ship cells convertidos:", ship_cells)
+
+# ---------------------------------------------------------------------------
+# ASIGNACIÓN DE PREGUNTAS POR CELDA (14 en total)
+# ---------------------------------------------------------------------------
+correct_answers = [
+    "C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"
+]
+
+# Crear el pool de preguntas; cada pregunta tiene un "num" único.
+all_questions = []
+for i in range(1, len(ship_cells) + 1):
+    q = {
+        "num": i,
+        "image": f"Preguntas batalla naval/Pregunta{i}.jpg",
+        "correct": correct_answers[i-1],
+        "feedback": [f"Respuesta correcta/{i}.jpg"],
+        "first_hint": f"Pistas primer intento fallido/{i}.jpg"
+    }
+    all_questions.append(q)
+
+# Subir todas las preguntas a Firebase (sin coordenadas, ya que se asignan luego)
+def subir_preguntas_a_firebase(preguntas):
+    ref_preguntas = db.reference("Preguntas")
+    ref_preguntas.set(preguntas)
+    print("Preguntas subidas correctamente a Firebase.")
+
+subir_preguntas_a_firebase(all_questions)
+
+def obtener_preguntas():
+    ref = db.reference("Preguntas")
+    preguntas = ref.get()
+    if preguntas is None:
+        print("No hay preguntas en Firebase. ¿Subiste los datos correctamente?")
+        return {}
+    print("Preguntas obtenidas de Firebase:", preguntas)
+    return preguntas
+
+preguntas_firebase = obtener_preguntas()
+
+# Asignar preguntas a las celdas de barcos (ship_cells)
+# Se supone que el orden de ship_cells y all_questions es el mismo.
+question_data = {}
+for i, cell in enumerate(ship_cells):
+    question_data[cell] = all_questions[i]
+print("\nDiccionario de preguntas con coordenadas:", question_data)
+
+# Inicializar diccionarios para controlar intentos y celdas respondidas
+attempts_minijuego = {}
+answered_minijuego = {}
+for cell in question_data:
+    attempts_minijuego[cell] = 0
+    answered_minijuego[cell] = False
 
 # -------------------------- FASE DE ATAQUE (con Firebase) -----------------------------
 def dibujar_coordenadas_tablero(x, y, tam_celda, grid_size):

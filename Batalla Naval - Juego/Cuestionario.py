@@ -4,9 +4,9 @@ import firebase_admin
 from firebase_admin import credentials, db
 
 # Configuración de Firebase
-cred = credentials.Certificate(r"C:\Users\danim\Downloads\intro-firebase-be732-firebase-adminsdk-fbsvc-224dc732f0.json")
+cred = credentials.Certificate(r"C:\Users\danim\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
-    "databaseURL": "https://intro-firebase-be732-default-rtdb.firebaseio.com/"
+    "databaseURL": "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
 
 # Configuración inicial
