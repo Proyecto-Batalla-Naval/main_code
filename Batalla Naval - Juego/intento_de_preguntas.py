@@ -90,10 +90,10 @@ all_questions = []
 for i in range(1, len(ship_cells) + 1):
     q = {
         "num": i,
-        "image": f"Preguntas batalla naval/Pregunta{i}.jpg",
+        "image": f"Pregunta{i}.jpg",
         "correct": correct_answers[i-1],
-        "feedback": [f"Respuesta correcta/{i}.jpg"],
-        "first_hint": f"Pistas primer intento fallido/{i}.jpg"
+        "feedback": [f"{i}.jpg"],
+        "first_hint": f"{i}.jpg"
     }
     all_questions.append(q)
 
