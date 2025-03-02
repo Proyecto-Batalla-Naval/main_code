@@ -1,11 +1,10 @@
 import pygame, sys, random, time, re
 import firebase_admin
 from firebase_admin import credentials, db
-import datos_minijuego
 
 # -------------------------- Firebase -----------------------------
 # Inicializar Firebase con tu certificado y URL
-cred = credentials.Certificate(r"C:\Users\danim\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -29,6 +28,16 @@ def guardar_datos_jugador(jugador, datos_personales, barcos_completos):
         }
         data["barcos"].append(barco_firebase)
     
+        data["preguntas"] = { 
+            str(coord): {"respondida": False, "intentos": 0} 
+            for coord in todas_las_coordenadas
+        }
+
+def actualizar_vidas(delta):
+    global LIVES
+    vidas_ref = sala_ref.child("vidas")
+    vidas_ref.transaction(lambda current: (current or LIVES) + delta)
+    
     sala_ref.child(jugador).set(data)
 
 def esperar_oponente():
@@ -40,7 +49,7 @@ def esperar_oponente():
             break
         print("Esperando al otro jugador...")
         time.sleep(1)
-oponente = "jugador2"
+
 def obtener_barcos_oponente(jugador_actual):
     oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"
     data = sala_ref.child(oponente).child("barcos").get() or []
@@ -70,7 +79,7 @@ def registrar_disparo(jugador, coordenada):
                 "impactos": nuevo_impactos,
                 "hundido": hundido
             })
-
+    
     #----------------------------//////////////////////--------------------------
 
     sonido_disparo.play()
@@ -82,6 +91,30 @@ def registrar_disparo(jugador, coordenada):
             impacto = True
             sonido_impacto.play()  # Reproducir sonido de impacto
             break
+    
+    if impacto:
+        # Guardar estado de preguntas en Firebase
+        sala_ref.child("preguntas").child(str(coordenada)).set({
+            "respondida": False,
+            "intentos": 0
+        })
+    
+    # Sincronizar vidas
+    sala_ref.child("vidas").set(LIVES)
+    
+    return impacto
+
+def sincronizar_estado_preguntas():
+    preguntas_ref = sala_ref.child("preguntas")
+    preguntas_ref.on("value", lambda snap: actualizar_estado_local(snap.val()))
+
+def actualizar_estado_local(datos_firebase):
+    global attempts, answered_cells
+    for celda_str, datos in datos_firebase.items():
+        celda = tuple(map(int, celda_str.strip("()").split(", ")))
+        attempts[celda] = datos["intentos"]
+        if datos["respondida"]:
+            answered_cells.add(celda)
 
 def set_turno(turno):
     sala_ref.child("turno").set(turno)
@@ -90,8 +123,9 @@ def get_turno():
     return sala_ref.child("turno").get()
 
 def switch_turn(jugador_actual):
-    nuevo_turno = "jugador2" if jugador_actual == "jugador1" else "jugador1"
-    set_turno(nuevo_turno)
+    if current_question is None:  # Solo cambiar turno si no hay pregunta activa
+        nuevo_turno = "jugador2" if jugador_actual == "jugador1" else "jugador1"
+        set_turno(nuevo_turno)
 
 # -------------------------- Registro de Usuario -----------------------------
 def registrar_usuario_gui(jugador_num=None):
@@ -174,12 +208,73 @@ def registrar_usuario_gui(jugador_num=None):
     else:
         return datos  # Modo individual
 
-# -------------------------- Constantes para el Minijuego -----------------------------
-MINIGAME_WIDTH = 400    # Edita este valor para cambiar el ancho del modal del minijuego
-MINIGAME_HEIGHT = 300   # Edita este valor para cambiar el alto del modal
-MINIGAME_SCALE = 0.7    # Factor de escala para las imágenes del minijuego
+# -------------------------- Class CPU -----------------------------
+class JuegoCPU:
+    def __init__(self):
+        self.barcos_cpu = []
+        self.disparos_cpu = []
+        self.generar_barcos_cpu()
+        
+    def generar_barcos_cpu(self):
+        tamaños = [4, 3, 3, 2, 2, 1]
+        self.barcos_cpu = []
+        grid = [[0]*tam_tablero for _ in range(tam_tablero)]
+    
+        for tamaño in tamaños:
+            colocado = False
+            intentos = 0
+            while not colocado and intentos < 100:
+                vertical = random.choice([True, False])
+                if vertical:
+                    fila = random.randint(0, tam_tablero - tamaño)
+                    col = random.randint(0, tam_tablero - 1)
+                else:
+                    fila = random.randint(0, tam_tablero - 1)
+                    col = random.randint(0, tam_tablero - tamaño)
+                
+                if self.puede_colocar(grid, fila, col, tamaño, vertical):
+                    posiciones = []
+                    for i in range(tamaño):
+                        if vertical:
+                            grid[fila + i][col] = 1
+                            posiciones.append([fila + i, col])
+                        else:
+                            grid[fila][col + i] = 1
+                            posiciones.append([fila, col + i])
+                    self.barcos_cpu.append({
+                        'posiciones': posiciones,
+                        'tamaño': tamaño,
+                        'impactos': 0,
+                        'hundido': False
+                    })
+                    colocado = True
+                intentos += 1
 
-# -------------------------- Inicialización Pygame y Recursos -----------------------------
+    def puede_colocar(self, grid, fila, col, tamaño, vertical):
+        if vertical:
+            if fila + tamaño > tam_tablero:
+                return False
+            for i in range(tamaño):
+                if grid[fila + i][col] == 1:
+                    return False
+        else:
+            if col + tamaño > tam_tablero:
+                return False
+            for i in range(tamaño):
+                if grid[fila][col + i] == 1:
+                    return False
+        return True
+
+    def realizar_ataque_cpu(self, disparos_jugador):
+        while True:
+            fila = random.randint(0, tam_tablero-1)
+            col = random.randint(0, tam_tablero-1)
+            if [fila, col] not in self.disparos_cpu and [fila, col] not in disparos_jugador:
+                self.disparos_cpu.append([fila, col])
+                return fila, col
+
+
+
 #-------------------------------------Configuración Pygame, Recursos -----------------------------------------
 pygame.init()
 
@@ -216,14 +311,18 @@ COLOR_BARCO = (75, 75, 75)
 COLOR_HUNDIDO = (200, 0, 0)
 COLOR_AGUA = (0, 100, 200)
 COLOR_FONDO = (30, 45, 60)
-BUTTON_COLOR = (180, 180, 250)
-MARGIN = 80
 
 # Parámetros para la fase de ataque (tablero)
 tam_tablero = 7
 tam_celda = 40
 inicioX = (ancho - (tam_tablero * tam_celda)) // 2
 inicioY = (alto - (tam_tablero * tam_celda)) // 2 + 40
+
+# Añadir al inicio del juego
+current_question = None
+answered_cells = set()
+attempts = defaultdict(int)
+LIVES = 3  # Definir en ámbito global o de clase
 
 # Recursos gráficos y fuentes
 ventana = pygame.display.set_mode((ancho, alto))
@@ -277,6 +376,124 @@ def atenuar_fondo(ventana, intensidad):
     # Dibujar la superficie sobre el fondo
     ventana.blit(atenuacion, (0, 0))
 
+LIVES = 3
+heart_img = pygame.image.load("corazoncito.png") if os.path.exists("corazoncito.png") else None
+
+# Modificar la función de dibujado de vidas
+def draw_lives(surface, x, y):
+    if heart_img:
+        for i in range(LIVES):
+            pos = (x + i*35, y)
+            surface.blit(heart_img, pos)
+    else:
+        text = Fuente_opcion.render(f"Vidas: {LIVES}", True, rojo)
+        surface.blit(text, (x, y))
+
+# -------------------------- Configuración de Preguntas -----------------------------
+def handle_question():
+    global LIVES, answered_cells
+    respuesta = show_question(current_question["pregunta"])
+    
+    if respuesta == current_question["correcta"]:
+        show_feedback("correcto.jpg")
+        answered_cells.add(current_question["celda"])
+    else:
+        LIVES -= 1
+        show_hint(current_question["pistas"][0])
+        if LIVES <= 0:
+            game_over()
+
+
+def cargar_preguntas():
+    preguntas = []
+    correct_answers = ["C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"]  # Ejemplo, aqui debes agregar las opciones correctas de esa pregunta
+    
+    for i in range(1, 15):  # Asumiendo 14 preguntas
+        preguntas.append({
+            "num": i,
+            "imagen": f"Preguntas/Pregunta{i}.jpg",
+            "correcta": correct_answers[i-1],
+            "pistas": [
+                f"Pistas/Pista{i}-1.jpg",
+                f"Pistas/Pista{i}-2.jpg"
+            ]
+        })
+    return preguntas
+
+def cargar_imagen_segura(ruta):
+    try:
+        return pygame.image.load(ruta)
+    except Exception as e:
+        print(f"Error cargando {ruta}: {str(e)}")
+        return pygame.Surface((100, 100))  # Imagen de fallback.
+
+        
+# Asignar aleatoriamente a celdas de barcos
+def asignar_preguntas_a_barcos(posiciones_barcos, preguntas):
+    celdas_barcos = [coord for barco in posiciones_barcos.values() for coord in barco["posiciones"]]
+    random.shuffle(celdas_barcos)
+    return {celda: preguntas[i] for i, celda in enumerate(celdas_barcos)}
+
+
+def manejar_pregunta(celda, question_data, answered_cells, attempts, lives):
+    pregunta = question_data[celda]
+    respuesta = mostrar_pregunta(pregunta["imagen"])
+    
+    if respuesta == pregunta["correcta"]:
+        answered_cells.add(celda)
+        mostrar_feedback("¡Correcto!", pregunta["feedback"])
+        return True, lives
+    else:
+        return manejar_intento_fallido(pregunta, celda, attempts, lives)
+
+def manejar_intento_fallido(pregunta, celda, attempts, lives):
+    intentos = attempts.get(celda, 0) + 1
+    attempts[celda] = intentos
+
+    sala_ref.child("preguntas").child(str(celda)).update({
+        "intentos": intentos,
+        "respondida": False
+    })
+
+    
+    if intentos == 1:
+        mostrar_pista(pregunta["pistas"][0])
+        return False, lives
+    elif intentos == 2:
+        mostrar_pista(pregunta["pistas"][1])
+        return False, lives
+    else:
+        if lives > 0 and confirmar_uso_vida(lives):
+            lives -= 1
+            mostrar_imagen("perdida_vida.jpg")
+            return False, lives
+        else:
+            game_over()
+            return False, lives
+
+
+
+def show_question(image_path):
+    # Cargar imagen de pregunta y mostrar opciones
+    question_img = pygame.image.load(image_path)
+    ventana.blit(question_img, (ancho//2-200, alto//2-150))
+    
+    # Dibujar botones de opciones
+    opciones = ['A', 'B', 'C', 'D']
+    for i, opc in enumerate(opciones):
+        btn = OpcionesMenu(opc, Fuente_opcion, negro, blanco, ventana, 
+                          ancho//2-100 + i*60, alto//2+100, 50, 50)
+        
+    pygame.display.flip()
+    return esperar_respuesta()
+
+def show_hint(hint_path):
+    # Mostrar imagen de pista
+    hint_img = pygame.image.load(hint_path)
+    ventana.blit(hint_img, (ancho//2-150, alto//2-100))
+    pygame.display.flip()
+    pygame.time.wait(2000)
+
 def MenuPrincipal():
     while True:
         ventana.blit(fondo, (0, 0))
@@ -300,246 +517,6 @@ def MenuPrincipal():
                     sys.exit()
         pygame.display.flip()
 
-
-# Cargar la imagen del corazón (para representar vidas) usando ruta directa:
-try:
-    heart_img = pygame.image.load("main_code/Batalla Naval - Juego/heart.png")
-    heart_img = pygame.transform.scale(heart_img, (30, 30))
-except Exception as e:
-    print("Error al cargar la imagen de corazón:", e)
-    heart_img = None
-
-# -------------------------- Código del Minijuego de Preguntas -----------------------------
-# Se usa para insertar el overlay del minijuego durante el ataque.
-# Esta función recibe "q_data" (datos de la pregunta) y "cell_key" (la celda [fila, col] en la que se disparó).
-def show_hint(hint_path):
-    ventana.fill(blanco)
-    try:
-        hint_img = pygame.image.load(hint_path)
-    except Exception as e:
-        print("Error al cargar la pista:", e)
-        return
-    img_rect = hint_img.get_rect()
-    scale_factor = 0.5
-    new_width = int(img_rect.width * scale_factor)
-    new_height = int(img_rect.height * scale_factor)
-    hint_img = pygame.transform.scale(hint_img, (new_width, new_height))
-    hint_rect = hint_img.get_rect(center=(ancho // 2, alto // 2))
-    ventana.blit(hint_img, hint_rect)
-    pygame.display.flip()
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type in [pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN]:
-                waiting = False
-
-def show_penultimate_message(image_path="Mensaje penultimo intento/Mensaje.jpg"):
-    ventana.fill(blanco)
-    try:
-        penultimate_img = pygame.image.load(image_path)
-    except Exception as e:
-        print("Error al cargar la imagen del penúltimo intento:", e)
-        return
-    img_rect = penultimate_img.get_rect()
-    scale_factor = 0.5
-    new_width = int(img_rect.width * scale_factor)
-    new_height = int(img_rect.height * scale_factor)
-    penultimate_img = pygame.transform.scale(penultimate_img, (new_width, new_height))
-    img_rect = penultimate_img.get_rect(center=(ancho // 2, alto // 2))
-    ventana.blit(penultimate_img, img_rect)
-    pygame.display.flip()
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type in [pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN]:
-                waiting = False
-global lives
-def ask_use_life_dialog(current_lives):
-    ventana.fill(blanco)
-    message = f"¿Deseas gastar una vida? (Tienes {current_lives} vidas)"
-    text = fuente.render(message, True, negro)
-    text_rect = text.get_rect(center=(ancho // 2, alto // 3))
-    ventana.blit(text, text_rect)
-    button_width = 80
-    button_height = 40
-    spacing = 40
-    start_x = (ancho - (2 * button_width + spacing)) // 2
-    button_y = alto // 2
-    yes_rect = pygame.Rect(start_x, button_y, button_width, button_height)
-    no_rect = pygame.Rect(start_x + button_width + spacing, button_y, button_width, button_height)
-    pygame.draw.rect(ventana, BUTTON_COLOR, yes_rect, border_radius=8)
-    pygame.draw.rect(ventana, BUTTON_COLOR, no_rect, border_radius=8)
-    pygame.draw.rect(ventana, negro, yes_rect, 2, border_radius=8)
-    pygame.draw.rect(ventana, negro, no_rect, 2, border_radius=8)
-    yes_text = fuente.render("Sí", True, negro)
-    no_text = fuente.render("No", True, negro)
-    ventana.blit(yes_text, yes_text.get_rect(center=yes_rect.center))
-    ventana.blit(no_text, no_text.get_rect(center=no_rect.center))
-    pygame.display.flip()
-    choice = None
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                pos = event.pos
-                if yes_rect.collidepoint(pos):
-                    choice = "Sí"
-                    waiting = False
-                elif no_rect.collidepoint(pos):
-                    choice = "No"
-                    waiting = False
-    return choice
-
-def show_life_loss_image(image_path):
-    ventana.fill(blanco)
-    try:
-        img = pygame.image.load(image_path)
-    except Exception as e:
-        print("Error al cargar la imagen de derrota:", e)
-        return
-    img_rect = img.get_rect()
-    scale_factor = min((ancho - 2 * alto) / img_rect.width, (alto - 2 * MARGIN) / img_rect.height, 1)
-    new_width = int(img_rect.width * scale_factor)
-    new_height = int(img_rect.height * scale_factor)
-    img = pygame.transform.scale(img, (new_width, new_height))
-    img_rect = img.get_rect(center=(ancho // 2, alto // 2))
-    ventana.blit(img, img_rect)
-    pygame.display.flip()
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type in [pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN]:
-                waiting = False
-
-def show_simple_message(message):
-    ventana.fill(blanco)
-    text = fuente.render(message, True, negro)
-    text_rect = text.get_rect(center=(ancho // 2, alto // 2))
-    ventana.blit(text, text_rect)
-    pygame.display.flip()
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type in [pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN]:
-                waiting = False
-
-def show_final_image(final_image_path):
-    ventana.fill(blanco)
-    try:
-        final_img = pygame.image.load(final_image_path)
-    except Exception as e:
-        print("Error al cargar la imagen final:", e)
-        return
-    img_rect = final_img.get_rect()
-    scale_factor = min((ancho - 2 * MARGIN) / img_rect.width, (alto - 2 * MARGIN) / img_rect.height, 1)
-    new_width = int(img_rect.width * scale_factor)
-    new_height = int(img_rect.height * scale_factor)
-    final_img = pygame.transform.scale(final_img, (new_width, new_height))
-    img_rect = final_img.get_rect(center=(ancho // 2, alto // 2))
-    ventana.blit(final_img, img_rect)
-    pygame.display.flip()
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type in [pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN]:
-                waiting = False
-
-def ejecutar_minijuego(q_data, cell_key):
-    # Crear una superficie modal para el minijuego
-    modal = pygame.Surface((MINIGAME_WIDTH, MINIGAME_HEIGHT))
-    modal.set_alpha(240)  # Transparencia para que se vea el fondo subyacente
-    modal.fill(blanco)     # Fondo blanco; edita si deseas otro color
-
-    # Cargar y escalar la imagen de la pregunta
-    try:
-        img = pygame.image.load(q_data["image"])
-    except Exception as e:
-        print("Error al cargar la imagen de la pregunta:", e)
-        return "fallo"
-    img_rect = img.get_rect()
-    new_width = int(img_rect.width * MINIGAME_SCALE)
-    new_height = int(img_rect.height * MINIGAME_SCALE)
-    img = pygame.transform.scale(img, (new_width, new_height))
-    # Posicionar la imagen en la parte superior del modal
-    modal.blit(img, ((MINIGAME_WIDTH - new_width)//2, 20))
-    
-    # Dibujar los botones de respuestas en el modal
-    button_width = 50
-    button_height = 50
-    spacing = 20
-    options = ['A', 'B', 'C', 'D']
-    total_width = len(options)*button_width + (len(options)-1)*spacing
-    start_x = (MINIGAME_WIDTH - total_width)//2
-    button_y = new_height + 40
-    buttons = {}
-    for i, opt in enumerate(options):
-        rect = pygame.Rect(start_x + i*(button_width+spacing), button_y, button_width, button_height)
-        buttons[opt] = rect
-        pygame.draw.rect(modal, BUTTON_COLOR, rect, border_radius=8)
-        pygame.draw.rect(modal, negro, rect, 2, border_radius=8)
-        txt = fuente(opt, True, negro)
-        txt_rect = txt.get_rect(center=rect.center)
-        modal.blit(txt, txt_rect)
-    
-    # Blitear el modal sobre la pantalla sin limpiar el fondo principal
-    modal_pos = ((ancho - MINIGAME_WIDTH)//2, (alto - MINIGAME_HEIGHT)//2)
-    ventana.blit(modal, modal_pos)
-    pygame.display.flip()
-
-    # Esperar a que el usuario haga clic en uno de los botones del modal
-    selected = None
-    while selected is None:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = event.pos
-                # Convertir la posición del mouse a coordenadas relativas al modal
-                rel_x = mouse_pos[0] - modal_pos[0]
-                rel_y = mouse_pos[1] - modal_pos[1]
-                for opt, rect in buttons.items():
-                    if rect.collidepoint(rel_x, rel_y):
-                        selected = opt
-                        break
-        pygame.time.delay(50)
-
-    # Si la respuesta es correcta, devolver "correcto"
-    if selected == q_data["correct"]:
-        return "correcto"
-    else:
-        # Incrementar el contador de intentos para esa celda (ya inicializado en attempts)
-        attempts[cell_key] += 1
-        # Según el número de intentos, mostrar pistas o preguntar por la vida
-        if attempts[cell_key] == 1:
-            show_hint(q_data["first_hint"])
-        elif attempts[cell_key] == 2:
-            show_penultimate_message()
-        elif attempts[cell_key] == 3:
-            choice = ask_use_life_dialog(lives)
-            if choice == "Sí":
-                if lives > 0:
-                    lives -= 1
-                    show_life_loss_image(f"Derrota vidas/{q_data['num']}.jpg")
-                    answered[cell_key] = True  # Bloquear la celda para que no se reintente
-                    if lives == 0:
-                        show_simple_message("Se ha quedado sin vidas, inicie de nuevo el juego")
-                        pygame.quit()
-                        sys.exit()
-                    return "fallo"
-                else:
-                    show_simple_message("Se ha quedado sin vidas, inicie de nuevo el juego")
-                    pygame.quit()
-                    sys.exit()
-            else:
-                show_final_image(f"Agotando los intentos/{q_data['num']}.jpg")
-                show_simple_message("Gracias por jugar! Sigue intentando")
-                pygame.quit()
-                sys.exit()
-        return "fallo"
 # -------------------------- PANEL DE ESTRATEGIA (COLOCACIÓN DE BARCOS) -----------------------------
 
 # Parámetros y variables para el panel
@@ -874,21 +851,6 @@ def dibujar_botones_panel(superficie):
         txt = fuente.render("Inicio", True, blanco)
         superficie.blit(txt, (boton_inicio.x + 10, boton_inicio.y + 10))
 
-# ---------------------------------------------------------------------------
-# Función para dibujar las vidas (corazones) en la parte superior, de forma horizontal
-# ---------------------------------------------------------------------------
-def draw_lives():
-    if heart_img:
-        spacing = 5
-        # Dibujar en la esquina superior izquierda, con un margen fijo
-        for i in range(lives):
-            x = 10 + i * (heart_img.get_width() + spacing)
-            y = 10
-            ventana.blit(heart_img, (x, y))
-    else:
-        text = fuente.render(f"Vidas: {lives}", True, negro)
-        ventana.blit(text, (10, 10))
-
 def manejar_mousebuttondown_panel(event):
     x, y = event.pos
     if event.button == 1:
@@ -958,202 +920,8 @@ def manejar_mousebuttonup_panel(event):
                         reiniciar_barco_fuera(b)
                 else:
                     reiniciar_barco_fuera(b)
-        
-# Asumiendo que 'posiciones_barcos' es la lista de celdas ocupadas generada en el panel
-datos_minijuego.ship_cells = posiciones_barcos
 
-# Define la lista de respuestas correctas, por ejemplo:
-correct_answers = ["C", "A", "A", "A", "C", "B", "A", "A", "D", "B", "C", "B", "D", "B"]
-
-# Genera el diccionario de preguntas y guárdalo en el módulo
-datos_minijuego.generar_preguntas(correct_answers)
-
-# -------------------------- Fase de Ataque (con Firebase) -----------------------------
-def JuegoAtaque(jugador_actual):
-    clock = pygame.time.Clock()
-    run = True
-    mensaje = ""
-    mensaje_tiempo = 0
-
-    # Coordenadas de los tableros en la fase de ataque
-    inicioX_defensa = 50
-    inicioX_ataque = ancho//2 + 50
-    inicioY_tableros = 180
-
-    sonido_menu.fadeout(2000)
-    sonido_fondo.play(-1)  # Reproducir en loop infinito
-    disparos_restantes = 18
-    game_over = False
-    ganador = None
-    oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"  # Definir una sola vez
-
-    while run and not game_over:
-
-            # Obtener datos actualizados (con inicialización segura)
-
-
-            # Dibujar contador de disparos
-            texto_disparos = Fuente_opcion.render(f"Disparos: {disparos_restantes}", True, verde)
-            ventana.blit(texto_disparos, (ancho - 200, 20))
-            
-            #-------------------//////////////------------------------------//////////////////-----------------------------
-
-            ventana.blit(fondo2, (0, 0))
-            atenuar_fondo(ventana, 20) 
-            turno_actual = get_turno()
-            barcos_oponente = sala_ref.child(oponente).child("barcos").get() or []
-            
-
-            # /////////////////////////////////////////////////////////
-            try:
-                # 1. Obtener datos del oponente
-                estado_oponente = sala_ref.child(oponente).get() or {}
-                barcos_oponente = estado_oponente.get("barcos", [])
-                if not isinstance(barcos_oponente, list):
-                    barcos_oponente = []
-                
-                # 2. Obtener disparos del jugador
-                disparos_jugador_data = sala_ref.child(jugador_actual).child("disparos").get()
-                disparos_jugador = list(disparos_jugador_data.values()) if disparos_jugador_data else []
-                
-                # 3. Obtener datos propios
-                mis_barcos_data = sala_ref.child(jugador_actual).child("barcos").get() or []
-                mis_barcos = []
-                for barco in mis_barcos_data:
-                    if isinstance(barco, dict) and 'posiciones' in barco:
-                        mis_barcos.extend(barco['posiciones'])
-                
-                # 4. Obtener disparos del oponente
-                disparos_oponente_data = sala_ref.child(oponente).child("disparos").get()
-                disparos_oponente = list(disparos_oponente_data.values()) if disparos_oponente_data else []
-
-            except Exception as e:
-                print(f"Error de Firebase: {str(e)}")
-                continue  # Reintentar en el siguiente frame
-
-            # Calcular disparos
-            disparos_realizados = len(disparos_jugador)
-            disparos_restantes = 18 - disparos_realizados
-
-            # Verificar condiciones de victoria/derrota
-            barcos_hundidos = sum(1 for barco in barcos_oponente if barco.get('hundido', False))
-            total_barcos = len(barcos_oponente)
-            
-            if barcos_hundidos == total_barcos and total_barcos > 0:
-                ganador = jugador_actual
-                sonido_victoria.play()
-                game_over = True
-            elif disparos_realizados >= 18:
-                ganador = oponente
-                sonido_derrota.play()
-                game_over = True
-
-            #////////////////////////////////////////////////
-
-            # Obtener posiciones de barcos (convertidos a listas) de ambos jugadores
-            barcos_oponente = sala_ref.child(oponente).child("barcos").get() or []
-
-
-            mis_barcos_data = sala_ref.child(jugador_actual).child("barcos").get() or []
-            mis_barcos = []
-            for barco in mis_barcos_data:
-                if isinstance(barco, dict) and 'posiciones' in barco:
-                    mis_barcos.extend(barco['posiciones'])
-            
-            # Dibujar interfaz de ataque
-            titulo = Fuente_titulo.render("Fase de Ataque", True, azul)
-            ventana.blit(titulo, (ancho//2 - titulo.get_width()//2, 20))
-            dibujar_tablero_defensa(inicioX_defensa, inicioY_tableros, mis_barcos, disparos_oponente)
-            dibujar_tablero_ataque(inicioX_ataque, inicioY_tableros, barcos_oponente, disparos_jugador)        
-            
-            texto_defensa = Fuente_opcion.render("Tu Tablero", True, azul)
-            texto_ataque = Fuente_opcion.render("Tablero Enemigo", True, rojo)
-            ventana.blit(texto_defensa, (inicioX_defensa + 50, inicioY_tableros - 80))
-            ventana.blit(texto_ataque, (inicioX_ataque , inicioY_tableros - 80))
-
-            mostrar_mensaje_hundido(barcos_oponente)
-            
-            
-            if time.time() - mensaje_tiempo < 2:
-                mensaje_texto = Fuente_opcion.render(mensaje, True, rojo)
-                ventana.blit(mensaje_texto, (ancho//2 - mensaje_texto.get_width()//2, alto - 100))
-            
-            texto_turno = Fuente_opcion.render("Tu turno" if turno_actual == jugador_actual else "Turno del oponente",
-                                                True, verde if turno_actual == jugador_actual else rojo)
-            ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
-            
-            pygame.display.flip()
-            
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    run = False
-                    pygame.quit()
-                    sys.exit()
-                if event.type == pygame.MOUSEBUTTONDOWN and turno_actual == jugador_actual:
-                    pos = pygame.mouse.get_pos()
-                    celda = ClickTablero(pos, inicioX_ataque, inicioY_tableros)
-                    
-                    if celda:
-                        fila, col = celda
-                        coordenada = [fila, col]
-                        
-                        if not any(d == coordenada for d in disparos_jugador):
-                            registrar_disparo(jugador_actual, coordenada)
-                            
-                            # Verificar impacto usando barcos_oponente directamente
-                            impacto = False
-                            for barco in barcos_oponente:
-                                if coordenada in barco.get('posiciones', []):
-                                    impacto = True
-                                    break
-                            
-                            sonido_disparo.play()  # Sonido de disparo siempre suena
-                            if not impacto:
-                                pygame.time.delay(300)  # Pequeña pausa antes de la salpicadura
-                                sonido_salpicadura.play()  # Sonido de salpicadura
-                            
-                            mensaje = "¡IMPACTO!" if impacto else "AGUA"
-                            mensaje_tiempo = time.time()
-                            switch_turn(jugador_actual)
-                            time.sleep(0.5)
-            
-
-            #---------------------------/////////////////////----------------------------
-            if game_over or sala_ref.child("game_over").get():
-                sonido_fondo.stop()
-                mostrar_resultado(ganador == jugador_actual)
-                if not sala_ref.child("game_over").get():  # Solo actualizar si no está establecido
-                    sala_ref.child("game_over").set(ganador)
-                run = False
-
-            clock.tick(10)
-
-            # Verificar si el otro jugador ya ganó
-            ganador_firebase = sala_ref.child("game_over").get()
-            if ganador_firebase:
-                sonido_fondo.stop()
-                mostrar_resultado(ganador_firebase == jugador_actual)
-                run = False
-                break
-
-    def mostrar_resultado(victoria):
-        ventana.blit(fondo2, (0, 0))
-        texto = Fuente_Principal.render("¡VICTORIA!" if victoria else "¡DERROTA!", True, verde if victoria else rojo)
-        ventana.blit(texto, (ancho//2 - texto.get_width()//2, alto//2))
-        pygame.display.flip()
-        pygame.time.wait(5000)  # Mostrar por 5 segundos
-
-    def ClickTablero(posicionT, inicioX_tablero, inicioY_tablero):
-        xMouse, yMouse = posicionT
-        for fila in range(tam_tablero):
-            for col in range(tam_tablero):
-                x = inicioX_tablero + col * tam_celda
-                y = inicioY_tablero + fila * tam_celda
-                rect = pygame.Rect(x, y, tam_celda, tam_celda)
-                if rect.collidepoint(xMouse, yMouse):
-                    return fila, col
-        return None
-
+# -------------------------- FASE DE ATAQUE (con Firebase) -----------------------------
 def dibujar_coordenadas_tablero(x, y, tam_celda, grid_size):
     # Letras (columnas)
     letras = "ABCDEFG"
@@ -1167,6 +935,7 @@ def dibujar_coordenadas_tablero(x, y, tam_celda, grid_size):
         texto = str(i+1)
         render = letras_Tablero.render(texto, True, negro)
         ventana.blit(render, (x - 30, y + i*tam_celda + tam_celda//2 - render.get_height()//2))
+
 
 def dibujar_impacto(x, y, es_impacto):
     rect = pygame.Rect(x, y, tam_celda, tam_celda)
@@ -1187,6 +956,7 @@ def coord_str_to_indices(coord):
     row = int(coord[1:]) - 1
     col = columnas.index(col_letter)
     return row, col
+
 
 def dibujar_tablero_defensa(x, y, barcos_propios, disparos_oponente):
     ventana.blit(fondoTablero, (x, y))
@@ -1209,20 +979,20 @@ def dibujar_tablero_defensa(x, y, barcos_propios, disparos_oponente):
 
 def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
     ventana.blit(fondoTablero, (x, y))
-    atenuar_fondo(ventana, 70) 
     dibujar_grid_tablero(x, y, tam_celda, GRID_SIZE)
     dibujar_coordenadas_tablero(x, y, tam_celda, GRID_SIZE)
     
-    # Procesar todos los disparos
     for d in disparos_jugador:
         if len(d) == 2:
             fila, col = map(int, d)
             pos_x = x + col * tam_celda
             pos_y = y + fila * tam_celda
             
-            # Verificar impacto y hundimiento
-            impacto = False
-            hundido = False
+            # Variables para determinar el tipo de impacto
+            es_agua = True
+            barco_hundido = False
+            
+            # Verificar contra todos los barcos
             for barco in barcos_oponente:
                 if isinstance(barco, dict):  # Para Firebase
                     posiciones = barco.get('posiciones', [])
@@ -1231,16 +1001,23 @@ def dibujar_tablero_ataque(x, y, barcos_oponente, disparos_jugador):
                     posiciones = barco['posiciones']
                     hundido = barco['hundido']
                 
+                # Si el disparo está en este barco
                 if [fila, col] in posiciones:
-                    impacto = True
-                    break
+                    es_agua = False
+                    barco_hundido = hundido
+                    break  # No necesitamos revisar otros barcos
             
-            if hundido:
+            # Dibujar según el tipo de impacto
+            if barco_hundido:
+                # Dibujar cuadrado rojo (barco ya hundido)
                 pygame.draw.rect(ventana, COLOR_HUNDIDO, (pos_x, pos_y, tam_celda, tam_celda))
-            elif impacto:
+            elif not es_agua:
+                # Dibujar círculo rojo (impacto en barco activo)
                 pygame.draw.circle(ventana, rojo, (pos_x + tam_celda//2, pos_y + tam_celda//2), 15)
             else:
+                # Dibujar círculo azul (agua)
                 pygame.draw.circle(ventana, COLOR_AGUA, (pos_x + tam_celda//2, pos_y + tam_celda//2), 15)
+
 
 def mostrar_mensaje_hundido(barcos_oponente):
     mensajes = []
@@ -1261,18 +1038,142 @@ def mostrar_mensaje_hundido(barcos_oponente):
         ventana.blit(texto, (ancho//2 - texto.get_width()//2, y_pos))
         y_pos += 40
 
+
+#-----------------------------  Modo Single Player  --------------------------------------------
+
+def JuegoIndividual(posiciones_jugador, datos_jugador):
+    cpu = JuegoCPU()
+    disparos_jugador = []
+    turno_jugador = True
+    reloj = pygame.time.Clock()
+    juego_activo = True
+    mensaje = ""
+    mensaje_tiempo = 0
+
+    # Convertir posiciones del jugador
+    barcos_jugador = []
+    for nombre_barco, info in posiciones_jugador.items():
+        posiciones = []
+        for coord in info["posiciones"]:
+            fila = int(coord[1:]) - 1
+            col = ord(coord[0].upper()) - 65
+            posiciones.append([fila, col])
+        barcos_jugador.append({
+            "posiciones": posiciones,
+            "tamaño": info["size"],
+            "impactos": 0,
+            "hundido": False
+        })
+    
+    sonido_menu.fadeout(1000)
+    sonido_fondo.play(-1)
+    
+    while juego_activo:
+        ventana.blit(fondo2, (0, 0))
+        
+        # Manejar eventos
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+                
+            if event.type == pygame.MOUSEBUTTONDOWN and turno_jugador:
+                pos = pygame.mouse.get_pos()
+                celda = ClickTablero(pos, ancho//2 + 50, 180)
+                if celda:
+                    fila, col = celda
+                    if [fila, col] not in disparos_jugador:
+                        disparos_jugador.append([fila, col])
+                        impacto = False
+                        # Verificar impacto en CPU
+                        for barco in cpu.barcos_cpu:
+                            if [fila, col] in barco["posiciones"]:
+                                impacto = True
+                                barco["impactos"] += 1
+                                if barco["impactos"] >= barco["tamaño"]:
+                                    barco["hundido"] = True
+                                mensaje = "¡HAS IMPACTADO!"
+                                mensaje_tiempo = time.time()
+                                sonido_impacto.play()
+                                break
+                        if not impacto:
+                            mensaje = "AGUA"
+                            mensaje_tiempo = time.time()
+                            sonido_salpicadura.play()
+                            turno_jugador = False  # Solo cambia el turno si falla
+                        
+                        # Cambiar turno a la CPU
+                        turno_jugador = False
+        
+        # Turno de la CPU
+        if not turno_jugador:
+            time.sleep(1)  # Esperar 1 segundo antes de que la CPU realice su disparo
+            fila, col = cpu.realizar_ataque_cpu(disparos_jugador)
+            impacto_cpu = False
+            # Verificar impacto en jugador
+            for barco in barcos_jugador:
+                if [fila, col] in barco["posiciones"]:
+                    impacto_cpu = True
+                    barco["impactos"] += 1
+                    if barco["impactos"] >= barco["tamaño"]:
+                        barco["hundido"] = True
+                    mensaje = "¡TE HAN IMPACTADO!"
+                    mensaje_tiempo = time.time()
+                    sonido_impacto.play()  # Sonido de impacto
+                    break
+            if not impacto_cpu:
+                mensaje = "La CPU ha fallado"
+                mensaje_tiempo = time.time()
+                sonido_salpicadura.play()  # Sonido de salpicadura
+            
+            # Cambiar turno al jugador
+            turno_jugador = True
+        
+        # Dibujar elementos
+        dibujar_tablero_defensa(50, 180, [pos for barco in barcos_jugador for pos in barco["posiciones"]], cpu.disparos_cpu)
+        dibujar_tablero_ataque(ancho//2 + 50, 180, cpu.barcos_cpu, disparos_jugador)
+        
+        # Textos informativos
+        texto_defensa = Fuente_opcion.render("Tu Tablero", True, azul)
+        texto_ataque = Fuente_opcion.render("Tablero CPU", True, rojo)
+        ventana.blit(texto_defensa, (50 + 50, 180 - 80))
+        ventana.blit(texto_ataque, (ancho//2 + 50, 180 - 80))
+        
+        # Mensaje de impacto
+        if time.time() - mensaje_tiempo < 2:
+            texto_mensaje = Fuente_opcion.render(mensaje, True, rojo)
+            ventana.blit(texto_mensaje, (ancho//2 - texto_mensaje.get_width()//2, alto - 150))
+        
+        # Turno actual
+        texto_turno = Fuente_opcion.render("Tu turno" if turno_jugador else "Turno de la CPU", 
+                                          True, verde if turno_jugador else rojo)
+        ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
+        
+        pygame.display.flip()
+        reloj.tick(30)
+        
+        # Verificar victoria
+        jugador_gana = all(barco["hundido"] for barco in cpu.barcos_cpu)
+        cpu_gana = all(barco["hundido"] for barco in barcos_jugador)
+        
+        if jugador_gana or cpu_gana:
+            sonido_fondo.stop()
+            if jugador_gana:
+                sonido_victoria.play()
+            else:
+                sonido_derrota.play()
+            mostrar_resultado(jugador_gana)
+            juego_activo = False
+#------------------------------------------------------------------------------
+
 def JuegoAtaque(jugador_actual):
-    global attempts, answered
-    attempts = {}
-    answered = {}
+    global lives, question_data, answered_cells
+
     clock = pygame.time.Clock()
     run = True
     mensaje = ""
     mensaje_tiempo = 0
-    disparos_restantes = 18
-    game_over = False
-    ganador = None
-    
+
     # Coordenadas de los tableros en la fase de ataque
     inicioX_defensa = 50
     inicioX_ataque = ancho//2 + 50
@@ -1280,44 +1181,65 @@ def JuegoAtaque(jugador_actual):
 
     sonido_menu.fadeout(2000)
     sonido_fondo.play(-1)  # Reproducir en loop infinito
-    
+    disparos_restantes = 18
+    game_over = False
+    ganador = None
+    oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"  # Definir una sola vez
+
+    if not hasattr(JuegoAtaque, 'preguntas_cargadas'):
+        JuegoAtaque.question_data = asignar_preguntas_a_barcos(
+            obtener_posiciones_barcos(jugador_actual), 
+            cargar_preguntas()
+        )
+
     while run and not game_over:
-        # Obtener datos actualizados (con inicialización segura)
 
         # Dibujar contador de disparos
         texto_disparos = Fuente_opcion.render(f"Disparos: {disparos_restantes}", True, verde)
         ventana.blit(texto_disparos, (ancho - 200, 20))
-        #-------------------//////////////------------------------------//////////////////-----------------------------
-
+        
         ventana.blit(fondo2, (0, 0))
         atenuar_fondo(ventana, 20) 
         turno_actual = get_turno()
         barcos_oponente = sala_ref.child(oponente).child("barcos").get() or []
         
+        answered_cells = set()
+        attempts = defaultdict(int)
 
-        # /////////////////////////////////////////////////////////
         try:
+            # 1. Obtener datos del oponente
             estado_oponente = sala_ref.child(oponente).get() or {}
             barcos_oponente = estado_oponente.get("barcos", [])
+            if not isinstance(barcos_oponente, list):
+                barcos_oponente = []
+            
+            # 2. Obtener disparos del jugador
             disparos_jugador_data = sala_ref.child(jugador_actual).child("disparos").get()
             disparos_jugador = list(disparos_jugador_data.values()) if disparos_jugador_data else []
+            
+            # 3. Obtener datos propios
             mis_barcos_data = sala_ref.child(jugador_actual).child("barcos").get() or []
             mis_barcos = []
             for barco in mis_barcos_data:
                 if isinstance(barco, dict) and 'posiciones' in barco:
                     mis_barcos.extend(barco['posiciones'])
+            
+            # 4. Obtener disparos del oponente
             disparos_oponente_data = sala_ref.child(oponente).child("disparos").get()
             disparos_oponente = list(disparos_oponente_data.values()) if disparos_oponente_data else []
+
         except Exception as e:
             print(f"Error de Firebase: {str(e)}")
-            continue
+            continue  # Reintentar en el siguiente frame
 
+        # Calcular disparos
         disparos_realizados = len(disparos_jugador)
         disparos_restantes = 18 - disparos_realizados
-        
-        # Verificar victoria
+
+        # Verificar condiciones de victoria/derrota
         barcos_hundidos = sum(1 for barco in barcos_oponente if barco.get('hundido', False))
         total_barcos = len(barcos_oponente)
+        
         if barcos_hundidos == total_barcos and total_barcos > 0:
             ganador = jugador_actual
             sonido_victoria.play()
@@ -1327,73 +1249,96 @@ def JuegoAtaque(jugador_actual):
             sonido_derrota.play()
             game_over = True
 
+        # Obtener posiciones de barcos (convertidos a listas) de ambos jugadores
+        barcos_oponente = sala_ref.child(oponente).child("barcos").get() or []
+
+        mis_barcos_data = sala_ref.child(jugador_actual).child("barcos").get() or []
+        mis_barcos = []
+        for barco in mis_barcos_data:
+            if isinstance(barco, dict) and 'posiciones' in barco:
+                mis_barcos.extend(barco['posiciones'])
+        
         # Dibujar interfaz de ataque
-        ventana.blit(fondo2, (0, 0))
         titulo = Fuente_titulo.render("Fase de Ataque", True, azul)
         ventana.blit(titulo, (ancho//2 - titulo.get_width()//2, 20))
-        # Dibujar tableros de defensa y ataque (ya definidos en las funciones de tu equipo)
         dibujar_tablero_defensa(inicioX_defensa, inicioY_tableros, mis_barcos, disparos_oponente)
-        dibujar_tablero_ataque(inicioX_ataque, inicioY_tableros, barcos_oponente, disparos_jugador)
-        # Mostrar mensajes y turno
-        if time.time() - mensaje_tiempo < 2:
-            texto_mensaje = Fuente_opcion.render(mensaje, True, rojo)
-            ventana.blit(texto_mensaje, (ancho//2 - texto_mensaje.get_width()//2, alto - 100))
-        texto_turno = Fuente_opcion.render("Tu turno" if get_turno() == jugador_actual else "Turno del oponente", True, verde if get_turno() == jugador_actual else rojo)
-        ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
-        draw_lives()  # Dibuja los corazones de vidas
+        dibujar_tablero_ataque(inicioX_ataque, inicioY_tableros, barcos_oponente, disparos_jugador)        
         
+        texto_defensa = Fuente_opcion.render("Tu Tablero", True, azul)
+        texto_ataque = Fuente_opcion.render("Tablero Enemigo", True, rojo)
+        ventana.blit(texto_defensa, (inicioX_defensa + 50, inicioY_tableros - 80))
+        ventana.blit(texto_ataque, (inicioX_ataque , inicioY_tableros - 80))
+
+        mostrar_mensaje_hundido(barcos_oponente)
+        
+        if time.time() - mensaje_tiempo < 2:
+            mensaje_texto = Fuente_opcion.render(mensaje, True, rojo)
+            ventana.blit(mensaje_texto, (ancho//2 - mensaje_texto.get_width()//2, alto - 100))
+        
+        texto_turno = Fuente_opcion.render("Tu turno" if turno_actual == jugador_actual else "Turno del oponente",
+                                            True, verde if turno_actual == jugador_actual else rojo)
+        ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
+        
+        draw_lives(ventana, ancho - 200, 20)
+
         pygame.display.flip()
         
         for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN and get_turno() == jugador_actual:
+            if event.type == pygame.QUIT:
+                run = False
+                pygame.quit()
+                return
+            if event.type == pygame.MOUSEBUTTONDOWN and turno_actual == jugador_actual:
                 pos = pygame.mouse.get_pos()
                 celda = ClickTablero(pos, inicioX_ataque, inicioY_tableros)
+                
+                impacto, celda = procesar_disparo(event.pos)
+                
+                if impacto and celda in JuegoAtaque.question_data and celda not in answered_cells:
+                    manejar_pregunta(celda) 
+
                 if celda:
                     fila, col = celda
-                    cell_key = (fila, col)
-                    # Si la celda ya fue disparada, omite el proceso.
-                    if not any(d == [fila, col] for d in disparos_jugador):
-                        # Inicializar attempts y answered para esta celda si no existen aún.
-                        if cell_key not in attempts:
-                            attempts[cell_key] = 0
-                        if cell_key not in answered:
-                            answered[cell_key] = False
-                        # Obtener la pregunta asignada a esta celda desde el módulo de datos
-                        q_data = datos_minijuego.question_data.get(cell_key)
-                        if not q_data:
-                            # Si por alguna razón no hay pregunta asignada, elegir una aleatoria
-                            q_data = random.choice(list(datos_minijuego.question_data.values()))
-                        # Ejecutar el minijuego de preguntas una sola vez
-                        resultado = ejecutar_minijuego(q_data, cell_key)
-                        if resultado == "correcto":
-                            registrar_disparo(jugador_actual, [fila, col])
-                            sonido_disparo.play()
-                            # Verificar si la coordenada impacta en algún barco del oponente
-                            impacto = any([fila, col] in barco.get('posiciones', []) for barco in barcos_oponente)
-                            mensaje = "¡IMPACTO!" if impacto else "AGUA"
-                            mensaje_tiempo = time.time()
-                        else:
-                            mensaje = "¡FALLASTE!"
-                            mensaje_tiempo = time.time()
-                        switch_turn(jugador_actual)
-                        time.sleep(0.5)
+                    coordenada = [fila, col]
+                    
+                    if not any(d == coordenada for d in disparos_jugador):
+                        registrar_disparo(jugador_actual, coordenada)
                         
-        clock.tick(10)
+                        # Verificar impacto usando barcos_oponente directamente
+                        impacto = False
+                        for barco in barcos_oponente:
+                            if isinstance(barco, dict) and [fila, col] in barco.get('posiciones', []):
+                                impacto = True
+                                break
+                        
+                        sonido_disparo.play()  # Sonido de disparo siempre suena
+                        if not impacto:
+                            pygame.time.delay(300)  # Pequeña pausa antes de la salpicadura
+                            sonido_salpicadura.play()  # Sonido de salpicadura
+                            switch_turn(jugador_actual)
+                        
+                        mensaje = "¡IMPACTO!" if impacto else "AGUA"
+                        mensaje_tiempo = time.time()
+                        time.sleep(0.5)
+        
+
+        #---------------------------/////////////////////----------------------------
         if game_over or sala_ref.child("game_over").get():
             sonido_fondo.stop()
             mostrar_resultado(ganador == jugador_actual)
-            if not sala_ref.child("game_over").get():
+            if not sala_ref.child("game_over").get():  # Solo actualizar si no está establecido
                 sala_ref.child("game_over").set(ganador)
             run = False
 
+        clock.tick(10)
+
+        # Verificar si el otro jugador ya ganó
         ganador_firebase = sala_ref.child("game_over").get()
         if ganador_firebase:
             sonido_fondo.stop()
             mostrar_resultado(ganador_firebase == jugador_actual)
             run = False
             break
-
-    clock.tick(10)
 
 def mostrar_resultado(victoria):
     ventana.blit(fondo2, (0, 0))
@@ -1413,13 +1358,14 @@ def ClickTablero(posicionT, inicioX_tablero, inicioY_tablero):
                 return fila, col
     return None
 
-# -------------------------- Fase del Panel (Ship Placement) -----------------------------
+# -------------------------- FASE DEL PANEL (SHIP PLACEMENT) -----------------------------
 def panel_strategy():
     global juego_iniciado, posiciones_barcos
     reloj = pygame.time.Clock()
     inicializar_barcos()
     limpiar_grid()
     juego_iniciado = False
+
     while not juego_iniciado:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -1431,18 +1377,23 @@ def panel_strategy():
                 manejar_mousemotion_panel(event)
             elif event.type == pygame.MOUSEBUTTONUP:
                 manejar_mousebuttonup_panel(event)
+
         ventana.blit(fondoEstrategia, (0, 0))
         NombreTitulo("Panel de Estrategia", Fuente_opcion, negro, ventana, ancho//2, 30)
+
         dibujar_grilla_panel(ventana)
         dibujar_barcos_panel(ventana)
         dibujar_botones_panel(ventana)
         pygame.display.flip()
         reloj.tick(60)
-    return posiciones_barcos
 
-# -------------------------- Flujo Principal -----------------------------
+    return posiciones_barcos  # Devuelve las posiciones de los barcos
+
+# -------------------------- FLUJO PRINCIPAL -----------------------------
 def resetear_sala():
+    # Eliminar todos los datos de la sala
     sala_ref.delete()
+    # Volver a crear la estructura básica
     sala_ref.set({
         "jugador1": {},
         "jugador2": {},
@@ -1451,38 +1402,67 @@ def resetear_sala():
     })
 
 def main():
-    sonido_menu.play(-1)
+    sonido_menu.play(-1) #repetir bucle
     modo = MenuPrincipal()
-    if modo == "multijugador":
-        resetear_sala()
-        ventana.blit(fondo2, (0,0))
-        NombreTitulo("BATALLA NAVAL", Fuente_Principal, azul, ventana, ancho//2, alto//6)
-        BotonJuego = OpcionesMenu("Multiplayer", Fuente_opcion, blanco, azul, ventana, ancho//2-120, alto//2-75, 250, 80)
-        BotonIndividual = OpcionesMenu("Single Player", Fuente_opcion, blanco, azul, ventana, ancho//2-120, alto//2+50, 250, 80)
-        BotonSalir = OpcionesMenu("Salir", Fuente_opcion, verde, blanco, ventana, ancho//2-120, alto//2+175, 250, 80)
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                pos = pygame.mouse.get_pos()
-                if BotonJuego.collidepoint(pos):
-                    modo = "multijugador"
-                    break
-                if BotonIndividual.collidepoint(pos):
-                    modo = "individual"
-                    break
-                if BotonSalir.collidepoint(pos):
-                    pygame.quit()
-                    sys.exit()
+
+    try:
+
         if modo == "multijugador":
-            jugador_num, datos_jugador = registrar_usuario_gui(jugador_num=1)
-            posiciones_barcos = panel_strategy()
-            guardar_datos_jugador(jugador_num, datos_jugador, posiciones_barcos)
+            resetear_sala()
+            ventana.blit(fondo2, (0,0))
+            NombreTitulo("Selecciona tu jugador", Fuente_Principal, azul, ventana, ancho//2, 100)
+            boton_j1 = OpcionesMenu("Jugador 1", Fuente_opcion, blanco, azul, ventana, ancho//2 - 250, 250, 200, 50)
+            boton_j2 = OpcionesMenu("Jugador 2", Fuente_opcion, blanco, azul, ventana, ancho//2 + 50, 250, 200, 50)
+        
+            pygame.display.flip()
+            jugador_num = None
+            while jugador_num not in [1, 2]:
+                for event in pygame.event.get():
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        pos = pygame.mouse.get_pos()
+                        if boton_j1.collidepoint(pos):
+                            jugador_num = 1
+                        elif boton_j2.collidepoint(pos):
+                            jugador_num = 2
+            jugador_actual, datos_jugador = registrar_usuario_gui(jugador_num)
+            # Fase de colocación de barcos (panel de estrategia)
+            posiciones_barcos = panel_strategy()  # Se obtienen las posiciones a través de "posiciones_barcos"
+            # Enviar datos a Firebase
+
+            guardar_datos_jugador(jugador_actual, datos_jugador, posiciones_barcos)
             esperar_oponente()
             if not get_turno():
-                set_turno("jugador1")
-            JuegoAtaque(jugador_num)
-    sonido_menu.stop()
-    pygame.mixer.quit()
+                set_turno("jugador1" if jugador_num == 1 else "jugador2")
+            # Fase de ataque (basada en Firebase)
+            try:
+                JuegoAtaque(jugador_actual)
+            except Exception as e:
+                print(f"Error: {str(e)}")
+                mostrar_error("Error de conexión. Reintentando...")
+                time.sleep(2)
+                JuegoAtaque(jugador_actual)
 
+            finally:
+                if pygame.mixer.get_init():
+                    sonido_menu.stop()
+                    sonido_fondo.stop()
+                    pygame.mixer.quit()
+                pygame.quit() 
+            
+        elif modo == "individual":
+            datos_jugador = registrar_usuario_gui()
+            posiciones_barcos = panel_strategy()
+            JuegoIndividual(posiciones_barcos, datos_jugador)
+    except Exception as e:
+        print(f"Error: {e}")
+    
+    finally:
+        if pygame.mixer.get_init():  
+            sonido_menu.stop()
+            sonido_fondo.stop()
+            pygame.mixer.quit()  
+        pygame.quit() 
+            
 def mostrar_error(mensaje):
     ventana.blit(fondo2, (0,0))
     texto = Fuente_Principal.render(mensaje, True, rojo)
@@ -1492,3 +1472,4 @@ def mostrar_error(mensaje):
 
 if __name__ == '__main__':
     main()
+
