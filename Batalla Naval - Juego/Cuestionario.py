@@ -80,15 +80,6 @@ def place_ships_randomly(grid_size, ship_sizes):
             placed = True
     return ships_positions
 
-def tuple_to_alphanum(pos_tuple):
-    """
-    Convierte una tupla (col, row) en una cadena alfanumérica,
-    donde 0 -> "A", 1 -> "B", etc. y se suma 1 al número.
-    """
-    columnas = "ABCDEFG"
-    col, row = pos_tuple
-    return f"{columnas[col]}{row+1}"
-
 # Generar posiciones de los barcos y obtener todas las celdas ocupadas (14 en total)
 ships_positions = place_ships_randomly(GRID_SIZE, ships)
 ship_cells = [cell for ship in ships_positions for cell in ship]
@@ -133,20 +124,22 @@ def obtener_preguntas():
 preguntas_firebase = obtener_preguntas()
 
 # Asignar preguntas a las celdas de barcos (ship_cells)
-# Se supone que el orden de ship_cells y all_questions es el mismo.
+# Crear el pool de preguntas usando tuplas como claves
 question_data = {}
 for i, cell in enumerate(ship_cells):
-    # Convertir la tupla a formato alfanumérico
-    key = tuple_to_alphanum(cell)
-    question_data[key] = all_questions[i]
-print("\nDiccionario de preguntas con coordenadas:", question_data)
+    question_data[cell] = {  # Usar la tupla (col, row) como clave
+        "num": i + 1,
+        "image": f"Preguntas batalla naval/Pregunta{i+1}.jpg",
+        "correct": correct_answers[i],
+        "feedback": [f"Respuesta correcta/{i+1}.jpg"],
+        "first_hint": f"Pistas primer intento fallido/{i+1}.jpg"
+    }
 
-# Inicializar diccionarios para controlar intentos y celdas respondidas
-attempts = {}
-answered = {}
-for cell in question_data:
-    attempts[cell] = 0
-    answered[cell] = False
+print("\nDiccionario de preguntas con coordenadas (tuplas):", question_data)
+
+# Inicializar diccionarios con tuplas
+attempts = {cell: 0 for cell in question_data}
+answered = {cell: False for cell in question_data}
 
 # ---------------------------------------------------------------------------
 # Funciones de Dibujo e Interacción
@@ -385,15 +378,17 @@ while running:
             if x >= MARGIN and y >= MARGIN and x < MARGIN + GRID_SIZE * TILE_SIZE and y < MARGIN + GRID_SIZE * TILE_SIZE:
                 col = (x - MARGIN) // TILE_SIZE
                 row = (y - MARGIN) // TILE_SIZE
-                print("Celda clickeada:", (col, row))
-                in_ship = any((col, row) in ship for ship in ships_positions)
-                in_question = (col, row) in question_data
+                clicked_cell = (col,row)
+                print("Celda clickeada:", clicked_cell)
+
+                in_ship = any(clicked_cell in ship for ship in ships_positions)
+                in_question = clicked_cell in question_data
                 print("¿Está en un barco?", in_ship, "¿Tiene pregunta asignada?", in_question)
                 
-                if in_ship and not answered.get((col, row), False):
-                    q_data = question_data.get((col, row))
+                if in_ship and not answered.get(clicked_cell, False):
+                    q_data = question_data.get(clicked_cell)
                     if q_data is None:
-                        print("¡Atención! No hay datos de pregunta para la celda:", (col, row))
+                        print("¡Atención! No hay datos de pregunta para la celda:", clicked_cell)
                     else:
                         # Llamamos una sola vez a show_question usando (col, row)
                         user_answer = show_question(q_data["image"])
@@ -402,9 +397,9 @@ while running:
                             if user_answer == q_data["correct"]:
                                 show_feedback_images(q_data["feedback"])
                                 answered[(col, row)] = True
-                                print("Celda marcada como respondida:", (col, row))
+                                print("Celda marcada como respondida:", clicked_cell)
                             else:
-                                attempts.setdefault((col, row), 0)
+                                attempts.setdefault(clicked_cell, 0)
                                 attempts[(col, row)] += 1
                                 print("Intento en celda", (col, row), ":", attempts[(col, row)])
                                 if attempts[(col, row)] == 1:
