@@ -31,8 +31,6 @@ def guardar_datos_jugador(jugador, datos_personales, barcos_completos):
     
     sala_ref.child(jugador).set(data)
 
-oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"
-
 def esperar_oponente():
     # Espera a que ambos jugadores se hayan registrado
     while True:
@@ -42,10 +40,9 @@ def esperar_oponente():
             break
         print("Esperando al otro jugador...")
         time.sleep(1)
-
+oponente = "jugador2"
 def obtener_barcos_oponente(jugador_actual):
     oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"
-
     data = sala_ref.child(oponente).child("barcos").get() or []
     barcos = []
     for barco in data:
