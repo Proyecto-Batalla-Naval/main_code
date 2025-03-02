@@ -80,6 +80,15 @@ def place_ships_randomly(grid_size, ship_sizes):
             placed = True
     return ships_positions
 
+def tuple_to_alphanum(pos_tuple):
+    """
+    Convierte una tupla (col, row) en una cadena alfanumérica,
+    donde 0 -> "A", 1 -> "B", etc. y se suma 1 al número.
+    """
+    columnas = "ABCDEFG"
+    col, row = pos_tuple
+    return f"{columnas[col]}{row+1}"
+
 # Generar posiciones de los barcos y obtener todas las celdas ocupadas (14 en total)
 ships_positions = place_ships_randomly(GRID_SIZE, ships)
 ship_cells = [cell for ship in ships_positions for cell in ship]
@@ -127,7 +136,9 @@ preguntas_firebase = obtener_preguntas()
 # Se supone que el orden de ship_cells y all_questions es el mismo.
 question_data = {}
 for i, cell in enumerate(ship_cells):
-    question_data[cell] = all_questions[i]
+    # Convertir la tupla a formato alfanumérico
+    key = tuple_to_alphanum(cell)
+    question_data[key] = all_questions[i]
 print("\nDiccionario de preguntas con coordenadas:", question_data)
 
 # Inicializar diccionarios para controlar intentos y celdas respondidas
@@ -433,5 +444,3 @@ while running:
     pygame.display.flip()  # Actualizar la pantalla una vez por iteración
 
 pygame.quit()
-
-
