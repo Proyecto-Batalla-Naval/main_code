@@ -344,7 +344,7 @@ def confirmar_salida():
 GRID_SIZE = 7
 # Para el panel, usaremos celdas de 40 píxeles y una grilla ubicada en (ORIGEN_GRID_X, ORIGEN_GRID_Y)
 ORIGEN_GRID_X = (ANCHO_PANTALLA - (GRID_SIZE * tam_celda)) // 2
-ORIGEN_GRID_Y = (ALTO_PANTALLA - (GRID_SIZE * tam_celda)) // 2
+ORIGEN_GRID_Y = ( - (GRID_SIZE * tam_celda)) // 2
 
 # Lista de tamaños (puedes ajustar la cantidad y tamaños; aquí usamos 6 barcos)
 TAMAÑOS_BARCOS = [4, 3, 3, 2, 2, 1]

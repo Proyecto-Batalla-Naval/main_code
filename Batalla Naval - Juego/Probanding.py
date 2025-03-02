@@ -133,7 +133,7 @@ def formulario_login():
         dibujar_texto("Contraseña:", campos_rect[1].top - ALTO//30, FUENTE_NORMAL)
         btn_volver = dibujar_boton(ALTO - ALTO//5, "Volver", ancho=ANCHO//4)[0]
         btn_siguiente, btn_activo = dibujar_boton(ALTO - ALTO//3.5, "Siguiente", all(campos), ancho=ANCHO//4)
-        
+
         for event in pygame.event.get():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if btn_cerrar.collidepoint(event.pos):
@@ -154,16 +154,29 @@ def formulario_login():
                         error_msg = manejar_errores(e)
                 else:
                     campo_activo = next((i for i, r in enumerate(campos_rect) if r.collidepoint(event.pos)), None)
+
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     menu_principal()
                 elif campo_activo is not None:
-                    campos[campo_activo] = campos[campo_activo][:-1] if event.key == pygame.K_BACKSPACE else campos[campo_activo] + event.unicode
+                    # Si el usuario empieza a escribir, borra el mensaje de error
+                    if error_msg:
+                        error_msg = ""
+
+                    # Manejar entrada de texto
+                    if event.key == pygame.K_BACKSPACE:
+                        campos[campo_activo] = campos[campo_activo][:-1]
+                    else:
+                        campos[campo_activo] += event.unicode
+                    
                     btn_activo = all(campos)
-        
+
+        # Mostrar el mensaje de error si existe
         if error_msg:
-            dibujar_texto(error_msg, ALTO - ALTO//7, color=COLORES["error"])
+            dibujar_texto(error_msg, ALTO - ALTO//7, FUENTE_NORMAL, COLORES["error"])
+
         pygame.display.update()
+
 
 def formulario_registro():
     campos = ["", "", ""]
@@ -271,28 +284,38 @@ def formulario_registro():
         if error_msg:
             dibujar_texto(error_msg, btn_siguiente_y + ALTO//15, color=COLORES["error"])
         pygame.display.update()
-
+import subprocess
 def pantalla_juego(username):
-    while True:
-        screen.fill(COLORES["fondo"])
-        mouse_pos = pygame.mouse.get_pos()
-        btn_cerrar = dibujar_boton_cerrar()
-        if btn_cerrar.collidepoint(mouse_pos):
-            dibujar_boton_cerrar(hover=True)
+    pygame.quit()  
+    # sys.exit()  
+
+    # Ejecuta el nuevo script
+    comando = [
+        "C:/Users/judir/AppData/Local/Microsoft/WindowsApps/python3.11.exe",
+        "c:/Users/judir/Downloads/pROYECTO jULI/main_code/Batalla Naval - Juego/JuegoSonido.py",
+    ]
+    subprocess.run(comando)
+    # while True:
         
-        dibujar_texto(f"¡Bienvenido, {username}!", ALTO//4, FUENTE_TITULO, COLORES["primario"])
-        btn_volver = dibujar_boton(ALTO - ALTO//5, "Volver al Menú", ancho=ANCHO//3)[0]
+    #     screen.fill(COLORES["fondo"])
+    #     mouse_pos = pygame.mouse.get_pos()
+    #     btn_cerrar = dibujar_boton_cerrar()
+    #     if btn_cerrar.collidepoint(mouse_pos):
+    #         dibujar_boton_cerrar(hover=True)
         
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if btn_cerrar.collidepoint(event.pos):
-                    pygame.quit()
-                    sys.exit()
-                elif btn_volver.collidepoint(event.pos):
-                    menu_principal()
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                menu_principal()
-        pygame.display.update()
+    #     dibujar_texto(f"¡Bienvenido, {username}!", ALTO//4, FUENTE_TITULO, COLORES["primario"])
+    #     btn_volver = dibujar_boton(ALTO - ALTO//5, "Volver al Menú", ancho=ANCHO//3)[0]
+        
+    #     for event in pygame.event.get():
+    #         if event.type == pygame.MOUSEBUTTONDOWN:
+    #             if btn_cerrar.collidepoint(event.pos):
+    #                 pygame.quit()
+    #                 sys.exit()
+    #             elif btn_volver.collidepoint(event.pos):
+    #                 menu_principal()
+    #         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+    #             menu_principal()
+    #     pygame.display.update()
 
 def manejar_errores(e):
     if isinstance(e, requests.exceptions.ConnectionError):
