@@ -31,6 +31,8 @@ def guardar_datos_jugador(jugador, datos_personales, barcos_completos):
     
     sala_ref.child(jugador).set(data)
 
+oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"
+
 def esperar_oponente():
     # Espera a que ambos jugadores se hayan registrado
     while True:
@@ -42,11 +44,8 @@ def esperar_oponente():
         time.sleep(1)
 
 def obtener_barcos_oponente(jugador_actual):
-    oponente = "jugador2" 
-    if jugador_actual == "jugador1":
-        oponente = "jugador2" 
-    else:
-        "jugador1"
+    oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"
+
     data = sala_ref.child(oponente).child("barcos").get() or []
     barcos = []
     for barco in data:
@@ -190,13 +189,13 @@ pygame.init()
 pygame.mixer.init() #Configuracion de sonidos 
 
 #Sonidos juego 
-sonido_disparo = pygame.mixer.Sound("Batalla Naval - Juego/Disparo.wav")  
-sonido_impacto = pygame.mixer.Sound("Batalla Naval - Juego/Impacto.wav") 
-sonido_fondo = pygame.mixer.Sound("Batalla Naval - Juego/Fondo juego.ogg")   
-sonido_victoria = pygame.mixer.Sound("Batalla Naval - Juego/Victoria.wav") 
-sonido_derrota = pygame.mixer.Sound("Batalla Naval - Juego/Derrota.wav")
-sonido_menu=pygame.mixer.Sound("Batalla Naval - Juego/Musica de Fondo DOOM.ogg")
-sonido_salpicadura=pygame.mixer.Sound("Batalla Naval - Juego/Salpicadura.wav")
+sonido_disparo = pygame.mixer.Sound("Disparo.wav")  
+sonido_impacto = pygame.mixer.Sound("Impacto.wav") 
+sonido_fondo = pygame.mixer.Sound("Fondo juego.ogg")   
+sonido_victoria = pygame.mixer.Sound("Victoria.wav") 
+sonido_derrota = pygame.mixer.Sound("Derrota.wav")
+sonido_menu=pygame.mixer.Sound("Musica de Fondo DOOM.ogg")
+sonido_salpicadura=pygame.mixer.Sound("Salpicadura.wav")
 
 # Configuracion volumen
 sonido_fondo.set_volume(0.5)
@@ -243,11 +242,11 @@ fondoEstrategia = pygame.transform.scale(fondoEstrategia, (ancho, alto))
 
 # Imagen Barcos 
 imagenes_barcos = {
-    'Portaaviones': pygame.image.load("Batalla Naval - Juego/Portaaviones.jpg"),
-    'Destructor': pygame.image.load("Batalla Naval - Juego/Destructor.jpg"),
-    'Crucero': pygame.image.load("Batalla Naval - Juego/Crucero.jpg"),
-    'Fragata': pygame.image.load("Batalla Naval - Juego/Fragata.jpg"),
-    'Submarino': pygame.image.load("Batalla Naval - Juego/Submarino.jpg"),
+    'Portaaviones': pygame.image.load("Portaaviones.jpg"),
+    'Destructor': pygame.image.load("Destructor.jpg"),
+    'Crucero': pygame.image.load("Crucero.jpg"),
+    'Fragata': pygame.image.load("Fragata.jpg"),
+    'Submarino': pygame.image.load("Submarino.jpg"),
 }
 
 pygame.font.init()
@@ -990,6 +989,7 @@ def JuegoAtaque(jugador_actual):
     game_over = False
     ganador = None
     oponente = "jugador2" if jugador_actual == "jugador1" else "jugador1"  # Definir una sola vez
+
     while run and not game_over:
 
             # Obtener datos actualizados (con inicialización segura)
