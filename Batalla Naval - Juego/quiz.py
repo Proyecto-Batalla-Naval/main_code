@@ -231,7 +231,8 @@ def show_image(image_path, message=None):
                        (HEIGHT - 2 * MARGIN) / img_rect.height, 1)
     new_width = int(img_rect.width * scale_factor)
     new_height = int(img_rect.height * scale_factor)
-    img = pygame.transform.scale(img, (new_width, new_height))
+    # Usamos smoothscale para un escalado más suave
+    img = pygame.transform.smoothscale(img, (new_width, new_height))
     img_rect = img.get_rect(center=(WIDTH // 2, HEIGHT // 2))
     screen.blit(img, img_rect)
     if message:
@@ -369,7 +370,8 @@ def show_question(image_path):
     scale_factor = 0.5
     new_width = int(img_rect.width * scale_factor)
     new_height = int(img_rect.height * scale_factor)
-    question_img = pygame.transform.scale(question_img, (new_width, new_height))
+    # Usamos smoothscale en lugar de scale
+    question_img = pygame.transform.smoothscale(question_img, (new_width, new_height))
     image_x = (WIDTH - new_width) // 2
     image_y = MARGIN + 10
     screen.blit(question_img, (image_x, image_y))
