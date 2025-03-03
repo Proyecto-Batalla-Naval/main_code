@@ -108,7 +108,7 @@ def registrar_usuario_gui(jugador_num=None):
         ventana.blit(fondo2, (0, 0))
         
         # Título de registro
-        titulo = "Registro Jugador" if jugador_num is None else f"Registro Jugador {jugador_num}"
+        titulo = "Registro Jugador" if jugador_num is True else f"Registro Jugador {jugador_num}"
         NombreTitulo(f"Registro Jugador {jugador_num}", Fuente_Principal, negro, ventana, ancho//2, 100)
 
         # Dibujar cada campo de registro
@@ -265,6 +265,7 @@ sonido_menu.set_volume(0.2)
 ancho = 800
 alto = 600
 azul = (20, 78, 180 ) 
+morado=(120, 0, 32)
 gris = (100, 100, 100)
 azulsuave=(0,90,250)
 rojo = (180, 23, 20)
@@ -966,7 +967,7 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
 
         # Turno de la CPU
         if not turno_jugador:
-            time.sleep(1)  # Esperar 1 segundo antes de que la CPU realice su disparo
+            time.sleep(0.5)  # Esperar 1 segundo antes de que la CPU realice su disparo
             fila, col = cpu.realizar_ataque_cpu(disparos_jugador)
             impacto_cpu = False
             # Verificar impacto en jugador
@@ -1005,7 +1006,7 @@ def JuegoIndividual(posiciones_jugador, datos_jugador):
         
         # Turno actual
         texto_turno = Fuente_opcion.render("Tu turno" if turno_jugador else "Turno de la CPU", 
-                                          True, verde if turno_jugador else rojo)
+                                          True, morado if turno_jugador else rojo)
         ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
         
         pygame.display.flip()
@@ -1127,7 +1128,7 @@ def JuegoAtaque(jugador_actual):
             ventana.blit(mensaje_texto, (ancho//2 - mensaje_texto.get_width()//2, alto - 100))
         
         texto_turno = Fuente_opcion.render("Tu turno" if turno_actual == jugador_actual else "Turno del oponente",
-                                            True, verde if turno_actual == jugador_actual else rojo)
+                                            True, morado if turno_actual == jugador_actual else rojo)
         ventana.blit(texto_turno, (ancho//2 - texto_turno.get_width()//2, alto - 50))
         
         pygame.display.flip()
