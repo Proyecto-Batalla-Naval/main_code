@@ -293,7 +293,8 @@ def pantalla_juego(username):
     # Ejecuta el nuevo script
     comando = [
         "C:/Users/User/AppData/Local/Microsoft/WindowsApps/python.exe",
-        "C:/Users/User/Documents/Visual Studio Code - Programación/Repositorio Compartido - Batalla Naval/main_code/Batalla Naval - Juego/New version - fusion testing.py",
+        "C:/Users/User/Documents/Visual Studio Code - Programación/Repositorio Compartido - Batalla Naval/main_code/Batalla Naval - Juego/JuegoSonido - Bonus de tiros.py",
+        
     ]
     subprocess.run(comando)
     # while True:
