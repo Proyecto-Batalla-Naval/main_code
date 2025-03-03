@@ -5,7 +5,7 @@ from firebase_admin import credentials, db
 import os
 
 # --------------------- CONFIGURACIÓN DE FIREBASE ---------------------
-cred = credentials.Certificate(r"C:\Users\danim\Downloads\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
+cred = credentials.Certificate(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
 firebase_admin.initialize_app(cred, {
     "databaseURL": "https://bookstoreproject-8b4f0-default-rtdb.firebaseio.com/"
 })
@@ -31,6 +31,8 @@ HEIGHT = TOP_MARGIN + GRID_HEIGHT + BOTTOM_MARGIN
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Batalla Naval")
+icono = pygame.image.load("Icono.jpg")
+pygame.display.set_icon(icono)
 
 # Colores
 WHITE = (255, 255, 255)

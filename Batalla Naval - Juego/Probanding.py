@@ -1,3 +1,4 @@
+
 import firebase_admin
 from firebase_admin import credentials, db, auth
 import pygame
@@ -16,6 +17,8 @@ pygame.init()
 ANCHO, ALTO = 800, 600
 screen = pygame.display.set_mode((ANCHO, ALTO))
 pygame.display.set_caption("Sistema de Juego")
+icono = pygame.image.load("Icono.jpg")
+pygame.display.set_icon(icono)
 
 # Configurar Firebase
 # Configuración de diseño
@@ -287,16 +290,48 @@ def formulario_registro():
             dibujar_texto(error_msg, btn_siguiente_y + ALTO//15, color=COLORES["error"])
         pygame.display.update()
 import subprocess
+
 def pantalla_juego(username):
     os.system(r"C:\Users\User\Documents\Visual Studio Code - Programación\Python\Firebase\Firebase compartido - Batalla naval\bookstoreproject-8b4f0-firebase-adminsdk-2eymv-b7972991ba.json")
     
+    pygame.quit()
+
     # Ejecuta el nuevo script
     comando = [
         "C:/Users/User/AppData/Local/Microsoft/WindowsApps/python.exe",
         "C:/Users/User/Documents/Visual Studio Code - Programación/Repositorio Compartido - Batalla Naval/main_code/Batalla Naval - Juego/JuegoSonido - Bonus de tiros.py",
-        
     ]
-    subprocess.run(comando)
+
+    # Segundo código externo
+    comando_2 = [
+        "C:/Users/User/AppData/Local/Microsoft/WindowsApps/python.exe",
+        "C:/Users/User/Documents/Visual Studio Code - Programación/Repositorio Compartido - Batalla Naval/main_code/Batalla Naval - Juego/quiz.py"
+    ]
+
+    #subprocess.run(comando)
+
+    try:
+        # Ejecutar el primer código externo
+        print("Ejecutando el primer código externo...")
+        subprocess.run(comando, check=True)
+
+        # Ejecutar el segundo código externo después de que el primero termine
+        print("El primer código ha terminado. Ejecutando el segundo código externo...")
+        subprocess.run(comando_2, check=True)
+
+        # Mensaje de finalización
+        print("Ambos códigos externos han terminado.")
+    except subprocess.CalledProcessError as e:
+        # Manejar errores en la ejecución de los códigos externos
+        print(f"Error al ejecutar un código externo: {e}")
+        # Puedes mostrar un mensaje de error en la interfaz gráfica si lo deseas
+        manejar_errores(e)
+    except Exception as e:
+        # Manejar otros errores inesperados
+        print(f"Error inesperado: {e}")
+        manejar_errores(e)
+
+
     # while True:
         
     #     screen.fill(COLORES["fondo"])
@@ -317,7 +352,9 @@ def pantalla_juego(username):
     #                 menu_principal()
     #         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
     #             menu_principal()
-    #     pygame.display.update()
+    #     pygame.display.update()"""
+
+
 
 def manejar_errores(e):
     if isinstance(e, requests.exceptions.ConnectionError):
